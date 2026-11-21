@@ -53,21 +53,101 @@ The small tags above each reply show how it was understood (`parser`, `clarify`,
 5. No microphone? Type the same sentence in the text box and press **Send**. The same parser runs.
 6. **Delete all data** (bottom right) wipes everything.
 
-## How it works
+## Architecture
 
 ```mermaid
 flowchart LR
-  A[Push-to-talk button] --> B[Mic + browser noise suppression<br/>16 kHz PCM16 AudioWorklet]
-  B -->|WebSocket /stt| S[KHATAWAS server<br/>holds API key]
-  S -->|WebSocket| P[Gnani Prisma v3.0 STT<br/>top-50 customer names as hotwords]
-  P --> S --> T[Transcript]
-  T --> R{Rule-based parser<br/>numbers · intent · dates · corrections}
-  R -- understood --> L[Ledger logic]
-  R -- clause not understood --> Q[Qwen2.5-1.5B via Ollama<br/>type + customer only, amounts from parser] --> L
-  L --> E[(Encrypted ledger<br/>AES-256-GCM, IndexedDB)]
-  L --> V[Short spoken reply]
-  V -->|WebSocket /tts| S2[Gnani Timbre v3.0 TTS] --> O[Audio plays on device]
+  subgraph Device["Browser app on the shopkeeper's phone or laptop"]
+    direction TB
+    MIC["Push-to-talk mic<br/>AudioWorklet 16 kHz PCM16<br/>browser noise suppression"]
+    NLU["Rule-based parser, 10 languages<br/>numbers, intent, dates,<br/>corrections, transliteration"]
+    LED["Ledger logic<br/>same-name resolution<br/>corrections, queries, i18n replies"]
+    DB[("Encrypted ledger<br/>AES-256-GCM in IndexedDB")]
+    PLAY["Streaming audio playback"]
+    MIC --> NLU --> LED
+    LED <--> DB
+    LED --> PLAY
+  end
+  subgraph Server["Node.js 22 server on Render"]
+    GATE["WebSocket bridge /stt and /tts<br/>visitor and daily quota<br/>Gnani API key stays here"]
+  end
+  subgraph Gnani["Gnani Vachana cloud"]
+    STT["Prisma v3.0 STT<br/>10 languages plus auto-detect"]
+    TTS["Timbre v3.0 TTS<br/>one voice per language"]
+  end
+  subgraph Local["Optional, developer machine only"]
+    QW["Qwen2.5-1.5B INT4 via Ollama<br/>entry type and customer only"]
+  end
+  MIC ==>|PCM audio| GATE
+  GATE <==>|audio and keyterms, transcript| STT
+  GATE ==>|transcript| NLU
+  NLU -. clause not understood .-> GATE
+  GATE -. one clause .-> QW
+  LED ==>|reply text| GATE
+  GATE <==>|text, PCM audio| TTS
+  GATE ==>|audio chunks| PLAY
 ```
+
+The parser, ledger and encrypted store all run **in the browser**. The server only holds the Gnani key and bridges two WebSockets, so the ledger never leaves the device.
+
+### One utterance, step by step
+
+```mermaid
+sequenceDiagram
+  actor S as Shopkeeper
+  participant B as Browser app
+  participant N as Node server
+  participant P as Gnani Prisma STT
+  participant T as Gnani Timbre TTS
+  S->>B: holds the mic button and speaks
+  B->>N: WebSocket /stt, start with language, then PCM frames
+  N->>P: stream audio plus customer names as keyterms
+  P-->>N: transcript and detected language
+  N-->>B: transcript
+  Note over B: parser, then ledger, about 2 ms, no model call
+  alt clause not understood and Qwen available
+    B->>N: /ollama, one clause only
+    N-->>B: type and customer, amount from parser
+  end
+  B->>N: WebSocket /tts, reply text and language
+  N->>T: synthesize
+  T-->>N: PCM chunks
+  N-->>B: audio chunks
+  B-->>S: first sound plays before the full reply is ready
+```
+
+### Two customers with the same name
+
+```mermaid
+flowchart TD
+  A["Heard: Rahul ka 200 udhaar"] --> B{"How many customers match?"}
+  B -->|one| BOOK["Book it"]
+  B -->|none| NEW["Create a new customer"]
+  B -->|several, e.g. Rahul Sharma and Rahul Doodhwala| C{"Payment: only one candidate owes at least that amount?"}
+  C -->|yes| PICK["Auto-pick, say who and why"]
+  C -->|no| D{"Exactly one candidate was in this conversation recently?"}
+  D -->|yes| PICK
+  D -->|no| E{"One is a regular, 3 or more entries in 30 days, others none?"}
+  E -->|yes| PICK
+  E -->|no| ASK["Ask: Kaun sa Rahul? Sharma ya Doodhwala?"]
+  PICK --> UNDO["Shopkeeper can say: nahi, doosra Rahul"]
+  UNDO --> MOVE["Entry moves to the other Rahul"]
+```
+
+## Tech stack
+
+| Layer | What we use |
+|---|---|
+| Frontend | Plain JavaScript (ES modules), no framework and no build step. Web Audio `AudioWorklet` for mic capture, WebCrypto (AES-256-GCM) and IndexedDB for the encrypted ledger, Web Speech API as a browser fallback |
+| Backend | Node.js 22, a single runtime dependency (`ws`), WebSocket bridges for `/stt` and `/tts`, an access gate and per-visitor and daily usage caps |
+| Speech to text | **Gnani Prisma v3.0**: 10 languages plus auto-detect, customer names sent as keyterms |
+| Text to speech | **Gnani Timbre v3.0**: a voice per language, streamed so playback starts early |
+| Language model | **Qwen2.5-1.5B (INT4) via Ollama**, local and optional, used only for clauses the rules cannot parse and boxed in by guardrails. Not part of the hosted Render deployment |
+| Language logic | Own code: rule-based parser, number parser, Indic-script transliteration, reply tables for 10 languages |
+| Hosting | Docker on Render (free plan, auto-deploys from `main`) |
+| Tests | `node:test`, 59 automated tests, plus a live benchmark against real Prisma transcripts |
+
+## How it works
 
 **Design choices**
 
@@ -108,7 +188,7 @@ KHATAWAS uses **two AI models for two different jobs**. Gnani handles the voice;
 - A question answer is rejected unless the clause contains a question word.
 - If Ollama is down or slow (4 s timeout), Qwen returns nothing and the app asks the shopkeeper to repeat.
 
-**Honest status of Qwen:** tested from the command line and inside the benchmark (`scripts/benchmark.js`), where it recovered a ₹400 credit from "Geeta ke khate me chaar sau ka atta chadha do". It has also been run through the browser UI (3 of 3 typed fallback sentences booked correctly, e.g. "Imran ke khate me teen sau ka ration chadha do" -> Imran, credit 300, in about 250 ms when warm; the first call after Ollama starts took about 1.2 s while the model loaded, and gibberish was rejected with "Samajh nahi aaya"). Ollama must be running on the machine that runs `npm start`. It is a fallback, not the main path.
+**Honest status of Qwen:** tested from the command line and inside the benchmark (`scripts/benchmark.js`), where it recovered a ₹400 credit from "Geeta ke khate me chaar sau ka atta chadha do". It has also been run through the browser UI (3 of 3 typed fallback sentences booked correctly, e.g. "Imran ke khate me teen sau ka ration chadha do" -> Imran, credit 300, in about 250 ms when warm; the first call after Ollama starts took about 1.2 s while the model loaded, and gibberish was rejected with "Samajh nahi aaya"). Ollama must be running on the machine that runs `npm start`. It is a fallback, not the main path. **The hosted Render deployment runs the rules only** (its Docker image has no Ollama), so common phrases such as "atta chadha do" are now handled by the rules themselves.
 
 No telephony, no hosted end-to-end agent platform, no voice cloning. Orchestration is custom (`src/pipeline.js`).
 
@@ -166,7 +246,8 @@ test/              node:test suites
 
 ## Status and honest limitations
 
-- **Working and tested (50 automated tests + a live benchmark):** number parsing, credit/payment direction, relative dates, multi-entry sentences, spoken corrections, duplicate-name clarification, queries, Hindi-script input, phonetic name matching.
+- **Confusing-sentence test list:** [`docs/test-sentences.md`](docs/test-sentences.md) has mixed-language, negated, corrected and same-name sentences with expected results and the known limits.
+- **Working and tested (59 automated tests + a live benchmark):** number parsing, credit/payment direction, relative dates, multi-entry sentences, spoken corrections, duplicate-name clarification, queries, Hindi-script input, phonetic name matching.
 - **Measured with real Gnani calls** (details and caveats in [`docs/benchmark.md`](docs/benchmark.md)): on 32 synthetic test sentences, 32/32 fully correct in clean speech and every amount exact; 19/32 fully correct and 25/29 amounts exact with synthetic 5 dB shop noise. Prisma finalises a transcript about 0.3 s after speech ends; Timbre's first reply audio arrives in about 0.43 s (median). The test audio is synthetic and the parser was tuned on part of it, so these are not field results.
 - **Gnani integration (verified live):** `server/gnani.js` follows the Vachana docs (Prisma v3.0 STT WebSocket with `keyterms` hotwords and `format=codemix`; Timbre v3.0 TTS WebSocket). `npm run live-test` speaks a sentence with Timbre, transcribes it with Prisma and parses it. In our runs Prisma returned the transcript about 130-300 ms after the audio was sent and Timbre's first audio arrived in about 440-750 ms. These were short synthetic sentences over a home connection, not a noisy shop, so treat them as indicative, not as a latency guarantee.
 - **Prisma returns final transcripts only** (no partial/interim results), so the screen shows the text after you release the button.

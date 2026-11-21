@@ -90,5 +90,10 @@ export const HONOR_EXTRA = ['ಅವರು', 'ಅವರ', 'ಅವರಿಗೆ', '
 
 // Words that are never a customer name: currency, "and", and filler in the regional languages.
 export const STOP_EXTRA = ['ರೂಪಾಯಿ', 'ರೂ', 'रुपये', 'रुपया', 'रुपयांचे', 'रुपयांना', 'రూపాయలు', 'రూపాయి', 'రూపాయల', 'ரூபாய்', 'ரூபாயை', 'રૂપિયા', 'રૂપિયાનો', 'টাকা', 'টাকার', 'രൂപ', 'ਰੁਪਏ',
-  'आणि', 'ಮತ್ತು', 'మరియు', 'మరి', 'மற்றும்', 'અને', 'এবং', 'আর', 'ਅਤੇ', 'आहे', 'आहेत', 'ಇದೆ', 'ಆಗಿದೆ', 'ఉంది', 'உள்ளது', 'છે', 'আছে', 'ഉണ്ട്', 'ਹੈ', 'ਹਨ'];
+  'आणि', 'ಮತ್ತು', 'మరియు', 'మరి', 'மற்றும்', 'અને', 'এবং', 'আর', 'ਅਤੇ', 'आहे', 'आहेत', 'ಇದೆ', 'ಆಗಿದೆ', 'ఉంది', 'உள்ளது', 'છે', 'আছে', 'ഉണ്ട്', 'ਹੈ', 'ਹਨ',
+  // English pronouns and verbs: "she paid 500" must carry over to the last customer, never create a customer called "She".
+  'she', 'he', 'they', 'him', 'her', 'them', 'his', 'hers', 'their', 'took', 'take', 'taken', 'borrowed', 'owes', 'owe', 'owed', 'gave', 'give', 'given', 'paid', 'pay', 'pays',
+  'me', 'my', 'mine', 'you', 'your', 'it', 'its', 'that', 'this', 'these', 'those', 'also', 'again', 'back', 'nothing', 'something', 'today', 'yesterday', 'tomorrow',
+  'add', 'added', 'adding', 'remove', 'cancel', 'please', 'dont', 'don', 't', 's', 'not', 'never', 'mat', 'account', 'accounts', 'khata', 'cash', 'only', 'just', 'from', 'on', 'in', 'at', 'with', 'by', 'as', 'a', 'an',
+  'paune', 'sava', 'saade', 'parson', 'lekin', 'magar', 'but', 'however', 'sirf', 'abhi'];
 export const AND_WORDS = ['आणि', 'ಮತ್ತು', 'మరియు', 'మరి', 'மற்றும்', 'અને', 'এবং', 'আর', 'ਅਤੇ'];

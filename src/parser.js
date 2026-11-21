@@ -6,21 +6,27 @@ import { STEMS, NAME_SUFFIXES, POSTPOS_EXTRA, HONOR_EXTRA, STOP_EXTRA, AND_WORDS
 const HONOR_BASE = ['ji', 'जी', 'bhai', 'bhaiya', 'bhabhi', 'sahab', 'sahib', 'didi', 'uncle', 'aunty', 'madam', 'sir', 'seth', 'bhaisaab'];
 const HONOR = new Set([...HONOR_BASE, ...HONOR_EXTRA]);
 
-const CREDIT = ['sudhaar', 'सुधार', 'maal', 'saman', 'samaan', 'सामान', 'माल', 'udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye', 'उधारी', 'बाकी', 'लिखो', 'लिख', 'लिया'];
+const CREDIT = ['chadha', 'chadhao', 'chadhana', 'चढ़ा', 'चढ़ाओ', 'took', 'borrowed', 'add', 'added', 'sudhaar', 'सुधार', 'maal', 'saman', 'samaan', 'सामान', 'माल', 'udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye', 'उधारी', 'बाकी', 'लिखो', 'लिख', 'लिया'];
 const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid', 'pay', 'payment', 'wapas', 'chukaya', 'chuka', 'mila', 'received', 'gave', 'de gaya', 'de gayi', 'cleared', 'settle', 'दिया', 'दिये', 'दिए', 'दी', 'दे दिए', 'दे गया', 'दे गयी', 'दे गई', 'जमा', 'वापस', 'चुकाया', 'मिला', 'दे दिया'];
 const QUERY = ['kitna', 'kitni', 'kitne', 'total', 'balance', 'how much', 'batao', 'bata', 'kya hai', 'hisab', 'hisaab', 'कितना', 'कितनी', 'कितने', 'टोटल', 'बैलेंस', 'बताओ', 'बताइए', 'हिसाब'];
 const CORRECTION = ['nahi', 'nahin', 'nai', 'no', 'galat', 'sorry', 'matlab', 'actually', 'correction', 'nhi', 'नहीं', 'नही', 'गलत', 'मतलब'];
 // Words that hint at a ledger entry without saying credit/payment outright (e.g. "atta chadha do"): Qwen may read these.
 const WEAK_CUES = ['chadha', 'chadhao', 'chadhana', 'khate', 'khata', 'ration', 'atta', 'doodh', 'चढ़ा', 'चढ़ाओ', 'खाते', 'खाता', 'राशन', 'आटा', 'दूध'];
 const POSTPOS = ['ka', 'ki', 'ke', 'ko', 'se', 'ne', 'का', 'की', 'के', 'को', 'से', 'ने'];
+// "don't add 500", "udhaar mat dena": the shopkeeper is saying NOT to write something. Never book those.
+const NEGATE = /(^|\s)(mat|dont|don t|do not|never|na karo|na likho|मत)(\s|$)/u;
+const CONTRAST = ['lekin', 'magar', 'par', 'but', 'however', 'लेकिन', 'मगर', 'पर'];
 const OTHER = ['doosra', 'dusra', 'dusre', 'doosre', 'other'];
 const STOP = new Set([...OTHER, ...STOP_EXTRA, 'doosra', 'dusra', 'कल', 'आज', 'परसों', 'नरसों', 'और', 'है', 'था', 'थी', 'थे', 'रुपये', 'रुपए', 'रूपये', 'टोटल', 'कितना', 'उधार', 'उधारी', 'दिया', 'जमा', 'बाकी', 'नहीं', 'नही', 'गलत', 'मतलब', 'कुल', 'सब', 'सबका', 'kul', 'sab', 'saara', 'sabka', 'aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to'].map(canon));
 
 export function normalize(text) {
   return canon(normalizeDigits(text).replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, '')) // invisible zero-width marks Prisma may emit
     .toLowerCase()
-    .replace(/₹|rs\.?/g, ' ')
+    .replace(/₹|(?<![\p{L}])rs\.?(?![\p{L}])/gu, ' ')
     .replace(/(\d),(\d{3})/g, '$1$2')
+    // "2.5 hazaar" = 2500 and "250.50" = 250 rupees: a dot between digits must not end the sentence
+    .replace(/(\d+)\.(\d+)\s*(hazaar|hazar|thousand|lakh|lac|हज़ार|हजार|लाख)/gu, (m, a, b, w) => `${Math.round(parseFloat(`${a}.${b}`) * (/^(lakh|lac|लाख)$/.test(w) ? 100000 : 1000))}`)
+    .replace(/(\d+)\.\d+/g, '$1')
     .replace(/[।|]/g, '.')
     .replace(/[^\p{L}\p{M}\p{N}\s,.;]/gu, ' ')
     .replace(/\s+/g, ' ')
@@ -83,6 +89,14 @@ export function findCustomer(clause, known = [], lang = 'hi') {
     const fk = nameKey(first);
     if (toks.some((t) => isName(t) && (nameKey(t) === fk || nameKey(strip(t)) === fk)) || clause.includes(k.name.toLowerCase())) hits.push(k);
   }
+  if (!hits.length) { // nickname / surname only: "Doodhwala ka 200 udhaar" -> Rahul Doodhwala, if exactly one customer has that word
+    const nameToks = toks.filter((t) => isName(t));
+    if (nameToks.length === 1 && nameToks[0].length >= 4) {
+      const key = nameKey(strip(nameToks[0]));
+      const bySurname = known.filter((k) => k.name.split(' ').slice(1).some((w) => nameKey(w) === key));
+      if (bySurname.length) return { matches: bySurname, name: null };
+    }
+  }
   if (hits.length) {
     const typed = hits.filter((k) => clause.includes(k.name.toLowerCase()));
     return { matches: typed.length ? typed : hits, name: null };
@@ -139,6 +153,17 @@ function splitByAmounts(clause) {
     pos += f.end;
   }
   if (runs.length < 2) return [clause];
+  // "udhaar 300 nahi 350" / "500 diye the lekin abhi sirf 300 diye": the later amount replaces the earlier one.
+  const swap = new Set([...CORRECTION, ...CONTRAST].map(canon));
+  for (let k = runs.length - 2; k >= 0; k--) {
+    const between = toks.slice(runs[k].end, runs[k + 1].start);
+    if (between.some((w) => swap.has(w)) && !CORRECTION.includes(toks[runs[k].start - 1])) {
+      const drop = runs[k + 1].start - runs[k].start; toks.splice(runs[k].start, drop);
+      for (let j = k + 1; j < runs.length; j++) { runs[j].start -= drop; runs[j].end -= drop; }
+      runs.splice(k, 1);
+    }
+  }
+  if (runs.length < 2) return [toks.join(' ')];
   const kw = new Set([...CREDIT, ...PAYMENT, 'diya'].flatMap((w) => canon(w).split(' ')));
   const dates = new Set(['kal', 'parso', 'narso', 'aaj', 'कल', 'परसों', 'नरसों', 'आज']);
   const out = []; let from = 0;
@@ -164,11 +189,16 @@ export function parse(text, { customers = [], now = new Date(), lang = 'hi' } = 
   let unknown = false;
   const unknownClauses = [];
 
-  for (const clause of clauses) {
+  const dirOf = (c) => { const pay = hasAny(c, PAYMENT) || hasStem(c, STEMS.payment), cred = hasAny(c, CREDIT) || hasStem(c, STEMS.credit); return pay === cred ? null : (cred ? 'credit' : 'payment'); };
+  for (let ci = 0; ci < clauses.length; ci++) {
+    const clause = clauses[ci];
     const toks = clause.split(' ');
+    if (!isRegional(lang) && NEGATE.test(clause)) { actions.push({ kind: 'skip' }); continue; }
     const amt = findAmount(toks);
     const date = relativeDate(clause, now);
     const corrWord = hasAny(clause, CORRECTION) || hasStem(clause, STEMS.correction);
+    // "teen sau nahi": the word AFTER the amount says the amount is wrong. Do not turn it into a correction to that amount.
+    if (amt && !isRegional(lang) && hasAny(clause, CORRECTION) && !toks.slice(0, amt.start).some((w) => CORRECTION.includes(w)) && toks.slice(amt.end).some((w) => CORRECTION.includes(w)) && !hasAny(clause, QUERY)) { actions.push({ kind: 'skip' }); continue; }
     const isCorrection = corrWord && amt;
     const isQuery = (hasAny(clause, QUERY) && !(amt && !hasAny(clause, ['kitna', 'how much'])))
       || (hasStem(clause, STEMS.query) && !(amt && !hasStem(clause, STEMS.queryStrong)));
@@ -200,7 +230,15 @@ export function parse(text, { customers = [], now = new Date(), lang = 'hi' } = 
       if (!pay && !cred) {
         // "chaar sau tees" with no verb and no name: Prisma often drops the leading "nahi", so treat it as a correction.
         if (!(customerRef.matches.length || customerRef.name)) actions.push({ kind: 'correction', amount: amt.value, customer: customerRef });
-        else if (!hasAny(clause, WEAK_CUES)) actions.push({ kind: 'ask_direction', amount: amt.value, customer: customerRef, date: date || now.toISOString().slice(0, 10) });
+        else if (!hasAny(clause, WEAK_CUES)) {
+          // "Sunita ne kal 200 aur aaj 300 diye": the verb in the next clause covers this one too.
+          const nx = clauses[ci + 1], nd = nx && dirOf(nx);
+          const nc = nx && findCustomer(nx, customers, lang);
+          if (nd && !nc.matches.length && !nc.name) {
+            actions.push({ kind: nd, amount: amt.value, customer: customerRef, date: date || now.toISOString().slice(0, 10), raw: clause }); continue;
+          }
+          actions.push({ kind: 'ask_direction', amount: amt.value, customer: customerRef, date: date || now.toISOString().slice(0, 10) });
+        }
         else { unknownClauses.push(clause); unknown = true; }
         continue;
       }
