@@ -80,7 +80,7 @@ KHATAWAS uses **two AI models for two different jobs**. Gnani handles the voice;
 - A question answer is rejected unless the clause contains a question word.
 - If Ollama is down or slow (4 s timeout), Qwen returns nothing and the app asks the shopkeeper to repeat.
 
-**Honest status of Qwen:** tested from the command line and inside the benchmark (`scripts/benchmark.js`), where it recovered a ₹400 credit from "Geeta ke khate me chaar sau ka atta chadha do". It has not yet been exercised through the browser UI, and Ollama must be running on the machine that runs `npm start`. It is a fallback, not the main path.
+**Honest status of Qwen:** tested from the command line and inside the benchmark (`scripts/benchmark.js`), where it recovered a ₹400 credit from "Geeta ke khate me chaar sau ka atta chadha do". It has also been run through the browser UI (3 of 3 typed fallback sentences booked correctly, e.g. "Imran ke khate me teen sau ka ration chadha do" -> Imran, credit 300, in about 250 ms when warm; the first call after Ollama starts took about 1.2 s while the model loaded, and gibberish was rejected with "Samajh nahi aaya"). Ollama must be running on the machine that runs `npm start`. It is a fallback, not the main path.
 
 No telephony, no hosted end-to-end agent platform, no voice cloning. Orchestration is custom (`src/pipeline.js`).
 
