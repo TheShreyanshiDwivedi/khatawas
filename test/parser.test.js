@@ -55,3 +55,8 @@ test('parser is fast (<5ms)', () => {
   for (let i = 0; i < 100; i++) parse('Ramesh ka teen sau chaalis udhaar, kal 200 diya tha', { now: NOW });
   assert.ok((performance.now() - t) / 100 < 5);
 });
+
+test('new customers keep a two-word name', () => {
+  assert.equal(parse('Ramesh Kumar ka 100 udhaar', { now: NOW }).actions[0].customer.name, 'ramesh kumar');
+  assert.equal(parse('kal Sunita ka 50 diya', { now: NOW }).actions[0].customer.name, 'sunita');
+});

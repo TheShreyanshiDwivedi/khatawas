@@ -34,3 +34,21 @@ test('spoken answers to queries', async () => {
   await run(l, 'Ramesh ka 340 udhaar');
   assert.match((await run(l, 'Ramesh ka total?')).replies[0], /340/);
 });
+
+test('queries never create customers; "kul kitna baaki" gives overall total', async () => {
+  const l = new Ledger();
+  await run(l, 'Sunita ka 100 udhaar');
+  const r = await run(l, 'Kul kitna baaki hai');
+  assert.match(r.replies[0], /Kul baaki 100/);
+  await run(l, 'Mohan ka total');
+  assert.equal(l.customers.length, 1);
+});
+
+test('full names create separate customers, then first name asks which', async () => {
+  const l = new Ledger();
+  await run(l, 'Ramesh Kumar ka 100 udhaar');
+  await run(l, 'Ramesh Gupta ka 200 udhaar');
+  assert.deepEqual(l.customers.map((c) => c.name), ['Ramesh Kumar', 'Ramesh Gupta']);
+  assert.equal(l.balance(2), 200);
+  assert.match((await run(l, 'Ramesh ka 500 udhaar')).replies[0], /Kaun sa/);
+});

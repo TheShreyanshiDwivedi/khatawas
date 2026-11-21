@@ -6,11 +6,12 @@ export class Ledger {
 
   customerList() { return this.customers.map((c) => ({ id: c.id, name: c.name })); }
 
-  _resolve(ref) {
+  _resolve(ref, create = true) {
     if (ref.matches?.length === 1) return { customer: this.customers.find((c) => c.id === ref.matches[0].id) };
     if (ref.matches?.length > 1) return { ambiguous: ref.matches };
     if (!ref.name) return { missing: true };
     let c = this.customers.find((x) => x.name.toLowerCase() === ref.name);
+    if (!c && !create) return { notFound: true };
     if (!c) { c = { id: this.customers.length + 1, name: titleCase(ref.name) }; this.customers.push(c); }
     return { customer: c };
   }
@@ -46,8 +47,9 @@ export class Ledger {
         const sum = this.txns.filter((t) => t.date === today && t.kind === kind).reduce((s, t) => s + t.amount, 0);
         replies.push(`Aaj ${sum} rupaye ${kind === 'credit' ? 'udhaar gaya' : 'wapas aaya'}.`);
       } else if (a.kind === 'query_customer') {
-        const r = this._resolve(a.customer);
-        if (r.customer) replies.push(`${r.customer.name} ka total ${this.balance(r.customer.id)} rupaye baaki hai.`);
+        const r = this._resolve(a.customer, false);
+        if (r.notFound) replies.push('Is naam ka khata nahi mila.');
+        else if (r.customer) replies.push(`${r.customer.name} ka total ${this.balance(r.customer.id)} rupaye baaki hai.`);
         else if (r.ambiguous) replies.push(`Kaun sa? ${r.ambiguous.map((o) => o.name).join(' ya ')}?`);
       } else if (a.kind === 'query_total') {
         replies.push(`Kul baaki ${this.customers.reduce((s, c) => s + this.balance(c.id), 0)} rupaye hai.`);

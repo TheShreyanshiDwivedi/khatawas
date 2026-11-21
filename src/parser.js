@@ -6,7 +6,7 @@ const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid',
 const QUERY = ['kitna', 'kitni', 'kitne', 'total', 'balance', 'how much', 'batao', 'bata', 'kya hai', 'hisab', 'hisaab', 'कितना'];
 const CORRECTION = ['nahi', 'nahin', 'nai', 'no', 'galat', 'sorry', 'matlab', 'actually', 'correction', 'nhi', 'नहीं'];
 const POSTPOS = ['ka', 'ki', 'ke', 'ko', 'se', 'ne', 'का', 'की', 'के'];
-const STOP = new Set(['aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to']);
+const STOP = new Set(['kul', 'sab', 'saara', 'sabka', 'aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to']);
 
 export function normalize(text) {
   return normalizeDigits(text)
@@ -37,6 +37,15 @@ export function relativeDate(clause, now = new Date()) {
 // Known customers (hotword list) are matched first; otherwise the word before ka/ki/ke/ko.
 export function findCustomer(clause, known = []) {
   const toks = clause.split(' ');
+  // A spoken full name ("ramesh gupta ka") that matches nobody is a NEW customer, not the first-name match.
+  for (let i = 2; i < toks.length; i++) {
+    if (POSTPOS.includes(toks[i]) && /^\p{L}+$/u.test(toks[i - 1]) && /^\p{L}+$/u.test(toks[i - 2]) && !STOP.has(toks[i - 1]) && !STOP.has(toks[i - 2])) {
+      const full = `${toks[i - 2]} ${toks[i - 1]}`;
+      const exact = known.find((k) => k.name.toLowerCase() === full);
+      if (exact) return { matches: [exact], name: null };
+      return { matches: [], name: full };
+    }
+  }
   const hits = [];
   for (const k of known) {
     const first = k.name.toLowerCase().split(' ')[0];
@@ -48,7 +57,10 @@ export function findCustomer(clause, known = []) {
   }
   for (let i = 1; i < toks.length; i++) {
     if (POSTPOS.includes(toks[i]) && !STOP.has(toks[i - 1]) && !/^\d+$/.test(toks[i - 1])) {
-      return { matches: [], name: toks[i - 1] };
+      // keep up to two name words: "ramesh kumar ka" -> "ramesh kumar"
+      const prev = toks[i - 2];
+      const two = prev && !STOP.has(prev) && /^\p{L}+$/u.test(prev);
+      return { matches: [], name: two ? `${prev} ${toks[i - 1]}` : toks[i - 1] };
     }
   }
   const first = toks.find((t) => !STOP.has(t) && !/^\d/.test(t) && /^\p{L}+$/u.test(t));
@@ -56,7 +68,7 @@ export function findCustomer(clause, known = []) {
 }
 
 function titleCase(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  return s ? s.replace(/(^|\s)(\p{L})/gu, (m, a, b) => a + b.toUpperCase()) : s;
 }
 
 function splitClauses(s) {
