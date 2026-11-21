@@ -1,5 +1,6 @@
 // Ledger logic: applies parsed actions, handles corrections + duplicate-name clarification, answers queries.
 import { nameKey, displayName } from './translit.js';
+import { findAmount } from './numbers.js';
 
 export class Ledger {
   constructor() { this.customers = []; this.txns = []; this.nextId = 1; this.pending = null; }
@@ -80,6 +81,7 @@ export class Ledger {
       const t = text.toLowerCase().replace(/[.,।!?;:]/g, ' ');
       const cred = /(udhaar|udhar|उधार|credit|likh|baaki|बाकी|sudhaar|सुधार)/.test(t), pay = /(jama|जमा|diya|दिया|paid|wapas|वापस|payment|chukaya)/.test(t);
       if (cred === pay) return null; // neither (or both): not an answer
+      if (findAmount(t.split(/\s+/).filter(Boolean)) || t.split(/\s+/).filter(Boolean).length > 4) return null; // a new sentence with an amount is not an answer
       const a = { ...this.pending.action, kind: cred ? 'credit' : 'payment' };
       return this.apply([a]);
     }

@@ -14,7 +14,7 @@ const POSTPOS = ['ka', 'ki', 'ke', 'ko', 'se', 'ne', 'का', 'की', 'के
 const STOP = new Set(['कल', 'आज', 'परसों', 'नरसों', 'और', 'है', 'था', 'थी', 'थे', 'रुपये', 'रुपए', 'रूपये', 'टोटल', 'कितना', 'उधार', 'उधारी', 'दिया', 'जमा', 'बाकी', 'नहीं', 'नही', 'गलत', 'मतलब', 'कुल', 'सब', 'सबका', 'kul', 'sab', 'saara', 'sabka', 'aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to'].map(canon));
 
 export function normalize(text) {
-  return canon(normalizeDigits(text))
+  return canon(normalizeDigits(text).replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, '')) // invisible zero-width marks Prisma may emit
     .toLowerCase()
     .replace(/₹|rs\.?/g, ' ')
     .replace(/(\d),(\d{3})/g, '$1$2')

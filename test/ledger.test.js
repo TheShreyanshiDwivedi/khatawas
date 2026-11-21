@@ -102,3 +102,17 @@ test('amount + customer with no direction word asks, and never guesses', async (
   const q2 = await run(l, 'Sunita का सौ।'); await run(l, 'jama');
   assert.equal(l.balance(1), 240);
 });
+
+test('a new sentence with an amount is not an answer to the direction question', async () => {
+  const l = new Ledger(); l.addCustomer('Sunita');
+  await run(l, 'Sunita का तीन सौ चालीस।');            // asks "udhaar ya jama?"
+  await run(l, 'Sunita का डेढ़ सौ दिया।');             // a new command, must NOT answer the question
+  assert.equal(l.balance(1), -150);                     // only the new payment; the 340 was never booked
+  assert.equal(l.txns.length, 1);
+});
+
+test('zero-width characters inside Prisma text do not split words', async () => {
+  const l = new Ledger(); l.addCustomer('Sunita');
+  await run(l, 'Sunita का तीन सौ चालीस। सु‍धार');
+  assert.equal(l.balance(1), 340);
+});
