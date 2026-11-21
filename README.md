@@ -4,7 +4,7 @@
 
 **Team:** ANTHROMINDS · **Team ID:** 4FFAF822E514 · **College:** Dayananda Sagar Academy of Technology and Management & Dayananda Sagar College of Engineering
 **Hackathon:** Gnani Voice Hackathon — Voice Khata for Kirana Stores
-**Demo video:** [youtu.be/g-so4KEhQUo](https://youtu.be/g-so4KEhQUo) (2:56, the real live app driven through the real Gnani speech path with synthetic Timbre voices; Hindi, Kannada, Marathi, two Rahuls) · **Live demo:** link and access code are in the submission form
+**Demo video:** [youtu.be/g-so4KEhQUo](https://youtu.be/g-so4KEhQUo) (2:56, the real live app driven through the real Gnani speech path with synthetic Timbre voices; Hindi, Kannada, Marathi, two Rahuls) · **Pitch deck:** [docs/KHATAWAS-pitch-deck.pptx](docs/KHATAWAS-pitch-deck.pptx) (6 slides) · **Live demo:** link and access code are in the submission form
 
 ---
 
