@@ -7,6 +7,7 @@ const $ = (id) => document.getElementById(id);
 const useGnani = await gnaniEnabled();
 let ledger = Ledger.fromJSON(await loadLedger());
 let listener;
+let disclosed = false; // the first spoken reply of a session must say it is an AI
 $('mode').textContent = useGnani ? 'STT: Gnani Prisma v3 · TTS: Timbre v3' : 'DEV MODE: browser speech (Gnani not configured)';
 
 function render() {
@@ -23,7 +24,8 @@ async function process(text) {
   if (!text) return;
   const r = await handleTranscript(text, ledger);
   if (r.changed) await saveLedger(ledger.toJSON());
-  const reply = r.replies.join(' ');
+  let reply = r.replies.join(' ');
+  if (!disclosed) { reply = `Main ek AI sahayak hoon. ${reply}`; disclosed = true; }
   $('reply').textContent = reply;
   $('via').textContent = r.via;
   $('ms').textContent = `${Math.round(performance.now() - t0)} ms to reply`;
