@@ -4,7 +4,7 @@
 
 **Team:** ANTHROMINDS · **Team ID:** 4FFAF822E514 · **College:** Dayananda Sagar Academy of Technology and Management & Dayananda Sagar College of Engineering
 **Hackathon:** Gnani Voice Hackathon — Voice Khata for Kirana Stores
-**Demo video:** _add link_ · **Live demo:** _add link_
+**Demo video:** [youtu.be/r4Fw9ceKVoY](https://youtu.be/r4Fw9ceKVoY) (2:21, real app driven with synthetic Gnani Timbre voices) · **Live demo:** link and access code are in the submission form
 
 ---
 
