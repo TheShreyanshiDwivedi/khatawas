@@ -81,7 +81,8 @@ function showThread({ heard, reply, via, ms, note, options, direction }) {
   $('thread').querySelectorAll('[data-say]').forEach((b) => b.addEventListener('click', () => process(b.dataset.say)));
 }
 let replyLangNow = 'hi';
-const WELCOME = () => showThread({ heard: 'Ramesh ka 340 udhaar', reply: t('hi', 'credit', { name: 'Ramesh', amt: 340, bal: 340 }), via: 'example', ms: 0 });
+// Nothing is pre-filled: the first screen is an empty state, not a made-up conversation.
+const WELCOME = () => { $('thread').innerHTML = '<div class="empty">Hold the mic and say a name and an amount, or tap a sample below. Nothing is saved until you do.</div>'; };
 
 async function process(text) {
   const t0 = performance.now();
@@ -183,17 +184,25 @@ $('langBtn').addEventListener('click', openSheet);
 scrim.addEventListener('click', () => closeSheet());
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && open) closeSheet(); });
 const rubber = (o, d, c = 0.55) => (o * d * c) / (d + c * Math.abs(o)); // resistance past the open position
+// A tap must stay a tap: the pointer is only captured once it has moved ~8px, otherwise the click would be retargeted to the
+// sheet and the language buttons inside it would never fire.
 sheet.addEventListener('pointerdown', (e) => {
   if (e.target.closest('.grid') && $('grid').scrollTop > 0) return;
-  cancelAnimationFrame(raf); drag = { y0: e.clientY, base: y, hist: [[e.clientY, performance.now()]] }; sheet.setPointerCapture(e.pointerId);
+  drag = { y0: e.clientY, base: y, hist: [[e.clientY, performance.now()]], live: false, id: e.pointerId };
 });
 sheet.addEventListener('pointermove', (e) => {
   if (!drag) return;
-  const dy = e.clientY - drag.y0; drag.hist.push([e.clientY, performance.now()]); if (drag.hist.length > 6) drag.hist.shift();
+  const dy = e.clientY - drag.y0;
+  if (!drag.live) {
+    if (Math.abs(dy) < 8) return;
+    drag.live = true; drag.y0 = e.clientY; drag.base = y; cancelAnimationFrame(raf); sheet.setPointerCapture(drag.id); return;
+  }
+  drag.hist.push([e.clientY, performance.now()]); if (drag.hist.length > 6) drag.hist.shift();
   paint(drag.base + (dy < 0 ? -rubber(-dy, H()) : dy));
 });
 function endDrag() {
   if (!drag) return;
+  if (!drag.live) { drag = null; return; } // it was a tap
   const h = drag.hist, a = h[0], b = h[h.length - 1];
   const v = ((b[0] - a[0]) / Math.max(1, b[1] - a[1])) * 1000; drag = null;
   const projected = y + (v / 1000) * 0.998 / (1 - 0.998); // where a flick would come to rest
