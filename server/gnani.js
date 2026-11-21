@@ -5,6 +5,7 @@
 //   TTS  wss://api.vachana.ai/api/v1/tts      Timbre v3.0. One JSON request, replies are JSON with base64 audio chunks.
 // The API key stays on the server; the browser only ever talks to /stt and /tts on this server.
 import WebSocket from 'ws';
+import { LANGS, AUTO, fromGnani } from '../src/lang.js';
 
 // The two endpoints are public (not secrets), so they default here; only GNANI_API_KEY must be provided.
 const STT_URL = () => process.env.GNANI_STT_WS_URL || 'wss://api.vachana.ai/stt/v3/stream';
@@ -16,7 +17,17 @@ const FRAME = 1024; // 512 samples x 2 bytes = 32 ms at 16 kHz
 // Header values must be plain ASCII/latin1; keep only safe keyterms (Prisma accepts up to 200).
 const keyterms = (list) => JSON.stringify((list || []).filter((w) => /^[\x20-\x7e]+$/.test(w)).slice(0, 50));
 
-export function openStt({ hotwords = [], language = process.env.GNANI_STT_LANGUAGE || 'hi-IN', format = process.env.GNANI_STT_FORMAT || 'codemix' } = {}) {
+// Which Prisma language/format to use for the shopkeeper's choice ('hi', 'kn', ... or 'auto'). Unknown values fall back to Hindi.
+// GNANI_STT_LANGUAGE / GNANI_STT_FORMAT still override the Hindi default, as before.
+export function sttConfig(lang) {
+  if (lang === 'auto') return AUTO;
+  const c = LANGS[lang] || LANGS.hi;
+  return c === LANGS.hi ? { ...c, stt: process.env.GNANI_STT_LANGUAGE || c.stt, format: process.env.GNANI_STT_FORMAT || c.format } : c;
+}
+
+export function openStt({ hotwords = [], lang = 'hi', language, format } = {}) {
+  const cfg = sttConfig(lang);
+  language ||= cfg.stt; format ||= cfg.format;
   const ws = new WebSocket(STT_URL(), {
     headers: {
       'x-api-key-id': process.env.GNANI_API_KEY,
@@ -68,13 +79,13 @@ export function bridgeStt(client) {
     const msg = JSON.parse(data.toString());
     if (msg.type === 'start') {
       stopped = false; started = 0; finals = 0; sentDone = false;
-      stt = openStt({ hotwords: msg.hotwords });
+      stt = openStt({ hotwords: msg.hotwords, lang: msg.lang });
       stt.ws.on('message', (m) => {
         let r; try { r = JSON.parse(m.toString()); } catch { return; }
         if (r.type === 'speech_start') started += 1;
         else if (r.type === 'transcript') {
           finals += 1;
-          if (r.text) send({ type: 'final', text: r.text, latency: r.latency, lang: r.detected_language_code });
+          if (r.text) send({ type: 'final', text: r.text, latency: r.latency, lang: fromGnani(r.detected_language_code) });
           settle();
         } else if (r.type === 'error') send({ type: 'error', message: r.message });
       });
@@ -118,7 +129,9 @@ export function bridgeTts(client) {
     const msg = JSON.parse(data.toString());
     if (msg.type !== 'speak') return;
     try {
-      await synthesize(msg.text, { onAudio: (b) => client.readyState === 1 && client.send(b, { binary: true }) });
+      const cfg = LANGS[msg.lang] || LANGS.hi; // reply language: the app tells us which of the ten to speak
+      const opts = cfg === LANGS.hi ? {} : { language: cfg.tts, voice: cfg.voice };
+      await synthesize(String(msg.text || '').slice(0, 500), { ...opts, onAudio: (b) => client.readyState === 1 && client.send(b, { binary: true }) });
       client.send(JSON.stringify({ type: 'done' }));
     } catch (e) { client.send(JSON.stringify({ type: 'error', message: String(e.message) })); }
   });

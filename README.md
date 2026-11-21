@@ -25,6 +25,12 @@ A shopkeeper holds a button and talks naturally, the way they already speak:
 | "Aaj kitna udhaar gaya?" | Speaks the total credit given today |
 | "Ramesh ka total?" | Speaks Ramesh's balance |
 
+## Ten languages, and two customers called Rahul
+
+KHATAWAS works in **Hindi/Hinglish, English, Kannada, Marathi, Tamil, Telugu, Gujarati, Bengali, Malayalam and Punjabi**, the ten languages Gnani Prisma v3.0 and Timbre v3.0 both support. Pick one from the language chip, or choose Auto-detect and the reply comes back in the language you spoke. When two customers share a first name, the app works out which one you mean from the balances and the conversation, and asks only when it cannot tell. Details, the live-verified transcripts, limits and how to add a language: [`docs/languages.md`](docs/languages.md).
+
+![The redesigned app with two customers named Rahul](docs/screenshots/9-new-ui-two-rahuls.jpg)
+
 ## See it working
 
 These are screenshots of the real app (not mock-ups), taken while driving it with synthetic Gnani Timbre voices through the real Prisma speech path. The caption on the right is added for the demo video; the app itself is the cream-coloured panel. Watch the full run in the [demo video](https://youtu.be/r4Fw9ceKVoY).
@@ -160,7 +166,7 @@ test/              node:test suites
 
 ## Status and honest limitations
 
-- **Working and tested (21 automated tests + a live benchmark):** number parsing, credit/payment direction, relative dates, multi-entry sentences, spoken corrections, duplicate-name clarification, queries, Hindi-script input, phonetic name matching.
+- **Working and tested (50 automated tests + a live benchmark):** number parsing, credit/payment direction, relative dates, multi-entry sentences, spoken corrections, duplicate-name clarification, queries, Hindi-script input, phonetic name matching.
 - **Measured with real Gnani calls** (details and caveats in [`docs/benchmark.md`](docs/benchmark.md)): on 32 synthetic test sentences, 32/32 fully correct in clean speech and every amount exact; 19/32 fully correct and 25/29 amounts exact with synthetic 5 dB shop noise. Prisma finalises a transcript about 0.3 s after speech ends; Timbre's first reply audio arrives in about 0.43 s (median). The test audio is synthetic and the parser was tuned on part of it, so these are not field results.
 - **Gnani integration (verified live):** `server/gnani.js` follows the Vachana docs (Prisma v3.0 STT WebSocket with `keyterms` hotwords and `format=codemix`; Timbre v3.0 TTS WebSocket). `npm run live-test` speaks a sentence with Timbre, transcribes it with Prisma and parses it. In our runs Prisma returned the transcript about 130-300 ms after the audio was sent and Timbre's first audio arrived in about 440-750 ms. These were short synthetic sentences over a home connection, not a noisy shop, so treat them as indicative, not as a latency guarantee.
 - **Prisma returns final transcripts only** (no partial/interim results), so the screen shows the text after you release the button.
@@ -168,7 +174,7 @@ test/              node:test suites
 - **Qwen fallback (tested on a small set):** Qwen2.5-1.5B answers in about 260-350 ms locally. On our first 5 messy sentences, unguarded, it got 3 wrong (goods-on-credit read as payments, amount 10 instead of 300, a made-up query for gibberish). So it is guard-railed: Qwen may only choose the kind and the customer; amounts always come from the deterministic number parser; writes with no spoken amount or no customer are rejected; query answers are rejected unless the sentence contains a question word. After this and a few-shot prompt it handled the one sentence the rules could not ("Geeta ke khate me chaar sau ka atta chadha do" -> credit 400) and produced nothing for gibberish. This is a handful of sentences, not a benchmark, and Qwen is a fallback, not the main path.
 - **Noise robustness:** this build uses the browser's built-in noise suppression and echo cancellation. Tested only against synthetic noise (see benchmark), not real shop recordings; under noise Prisma sometimes mishears names or inserts words, which the app cannot recover from. Native RNNoise/SpeexDSP is on the roadmap below, not shipped.
 - **Platform:** a web app that runs on a low-end phone's browser. A native Android build is future work.
-- **Parser coverage:** designed for Hindi/Hinglish/English. Regional-language number words beyond Hindi are not covered yet.
+- **Languages:** ten, see [`docs/languages.md`](docs/languages.md). Only Hindi/Hinglish was benchmarked on noisy speech. The other nine were verified end to end with synthetic Timbre voices (all ten return the amount as digits). Their spoken replies were drafted by an AI and need a native speaker's read. Spoken number words (instead of digits) are understood for Hindi, English, Marathi and Kannada.
 
 ## Roadmap
 
@@ -176,7 +182,7 @@ test/              node:test suites
 2. Evaluate Qwen fallback accuracy on a synthetic noisy test set.
 3. Native Android shell with RNNoise + SpeexDSP (JNI), SQLCipher and Android Keystore, as in the original design.
 4. Opt-in, polite payment reminders.
-5. More regional languages.
+5. Odia, Assamese and Urdu once Gnani supports them; field tests of the nine new languages with real shopkeepers.
 
 ## License
 

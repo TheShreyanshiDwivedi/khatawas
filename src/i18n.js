@@ -3,6 +3,7 @@
 // NOTE: these were drafted by an AI and should be read once by a native speaker before a real store relies on them.
 const M = {
   hi: {
+    other_btn: 'Doosra wala',
     credit: '{name} ka {amt} rupaye udhaar likh diya. Total {bal}.',
     payment: '{name} ka {amt} rupaye jama likh diya. Total {bal}.',
     corrected: 'Theek hai, {name} ka {amt} kar diya. Total {bal}.',
@@ -16,6 +17,7 @@ const M = {
     auto_note: 'Doosra {first} tha to "doosra" bolein.',
   },
   en: {
+    other_btn: 'The other one',
     credit: '{name}, {amt} rupees credit written. Total {bal}.', payment: '{name}, {amt} rupees payment written. Total {bal}.',
     corrected: 'Okay, {name} is now {amt}. Total {bal}.', nothing_to_fix: 'Nothing to correct.',
     today_credit: 'Today {sum} rupees went on credit.', today_payment: 'Today {sum} rupees came back.',
@@ -27,6 +29,7 @@ const M = {
     auto_note: 'If it was the other {first}, say "the other one".',
   },
   kn: {
+    other_btn: 'ಇನ್ನೊಬ್ಬರು',
     credit: '{name} ಅವರ {amt} ರೂಪಾಯಿ ಸಾಲ ಬರೆದಿದ್ದೇನೆ. ಒಟ್ಟು {bal}.', payment: '{name} ಅವರ {amt} ರೂಪಾಯಿ ಜಮಾ ಬರೆದಿದ್ದೇನೆ. ಒಟ್ಟು {bal}.',
     corrected: 'ಸರಿ, {name} ಅವರ {amt} ಮಾಡಿದ್ದೇನೆ. ಒಟ್ಟು {bal}.', nothing_to_fix: 'ತಿದ್ದಲು ಏನೂ ಇಲ್ಲ.',
     today_credit: 'ಇಂದು {sum} ರೂಪಾಯಿ ಸಾಲ ಹೋಗಿದೆ.', today_payment: 'ಇಂದು {sum} ರೂಪಾಯಿ ವಾಪಸ್ ಬಂದಿದೆ.',
@@ -38,6 +41,7 @@ const M = {
     auto_note: 'ಇನ್ನೊಬ್ಬ {first} ಆಗಿದ್ದರೆ "ಇನ್ನೊಬ್ಬರು" ಎನ್ನಿ.',
   },
   mr: {
+    other_btn: 'दुसरा',
     credit: '{name} यांचे {amt} रुपये उधार लिहिले. एकूण {bal}.', payment: '{name} यांचे {amt} रुपये जमा लिहिले. एकूण {bal}.',
     corrected: 'ठीक आहे, {name} यांचे {amt} केले. एकूण {bal}.', nothing_to_fix: 'दुरुस्त करण्यासारखे काही नाही.',
     today_credit: 'आज {sum} रुपये उधार गेले.', today_payment: 'आज {sum} रुपये परत आले.',
@@ -49,6 +53,7 @@ const M = {
     auto_note: 'दुसरा {first} असेल तर "दुसरा" म्हणा.',
   },
   ta: {
+    other_btn: 'வேறொருவர்',
     credit: '{name} அவர்களின் {amt} ரூபாய் கடன் எழுதினேன். மொத்தம் {bal}.', payment: '{name} அவர்களின் {amt} ரூபாய் வரவு எழுதினேன். மொத்தம் {bal}.',
     corrected: 'சரி, {name} அவர்களின் {amt} ஆக மாற்றினேன். மொத்தம் {bal}.', nothing_to_fix: 'திருத்த எதுவும் இல்லை.',
     today_credit: 'இன்று {sum} ரூபாய் கடனாக போனது.', today_payment: 'இன்று {sum} ரூபாய் திரும்ப வந்தது.',
@@ -60,6 +65,7 @@ const M = {
     auto_note: 'வேறொரு {first} என்றால் "வேறு" என்று சொல்லுங்கள்.',
   },
   te: {
+    other_btn: 'మరొకరు',
     credit: '{name} గారి {amt} రూపాయల అప్పు రాశాను. మొత్తం {bal}.', payment: '{name} గారి {amt} రూపాయల జమ రాశాను. మొత్తం {bal}.',
     corrected: 'సరే, {name} గారిది {amt} చేశాను. మొత్తం {bal}.', nothing_to_fix: 'సరిచేయడానికి ఏమీ లేదు.',
     today_credit: 'ఈరోజు {sum} రూపాయలు అప్పుగా వెళ్లాయి.', today_payment: 'ఈరోజు {sum} రూపాయలు తిరిగి వచ్చాయి.',
@@ -71,6 +77,7 @@ const M = {
     auto_note: 'మరొక {first} అయితే "మరొకరు" అనండి.',
   },
   gu: {
+    other_btn: 'બીજો',
     credit: '{name} ના {amt} રૂપિયા ઉધાર લખ્યા. કુલ {bal}.', payment: '{name} ના {amt} રૂપિયા જમા લખ્યા. કુલ {bal}.',
     corrected: 'ઠીક છે, {name} ના {amt} કર્યા. કુલ {bal}.', nothing_to_fix: 'સુધારવા જેવું કંઈ નથી.',
     today_credit: 'આજે {sum} રૂપિયા ઉધાર ગયા.', today_payment: 'આજે {sum} રૂપિયા પાછા આવ્યા.',
@@ -82,6 +89,7 @@ const M = {
     auto_note: 'બીજો {first} હોય તો "બીજો" કહો.',
   },
   bn: {
+    other_btn: 'অন্যজন',
     credit: '{name}-এর {amt} টাকা বাকি লিখলাম। মোট {bal}।', payment: '{name}-এর {amt} টাকা জমা লিখলাম। মোট {bal}।',
     corrected: 'ঠিক আছে, {name}-এর {amt} করলাম। মোট {bal}।', nothing_to_fix: 'ঠিক করার কিছু নেই।',
     today_credit: 'আজ {sum} টাকা বাকিতে গেছে।', today_payment: 'আজ {sum} টাকা ফেরত এসেছে।',
@@ -93,6 +101,7 @@ const M = {
     auto_note: 'অন্য {first} হলে "অন্য" বলুন।',
   },
   ml: {
+    other_btn: 'മറ്റേയാൾ',
     credit: '{name} ന്റെ {amt} രൂപ കടം എഴുതി. ആകെ {bal}.', payment: '{name} ന്റെ {amt} രൂപ ജമ എഴുതി. ആകെ {bal}.',
     corrected: 'ശരി, {name} ന്റെ {amt} ആക്കി. ആകെ {bal}.', nothing_to_fix: 'തിരുത്താൻ ഒന്നുമില്ല.',
     today_credit: 'ഇന്ന് {sum} രൂപ കടമായി പോയി.', today_payment: 'ഇന്ന് {sum} രൂപ തിരിച്ചു വന്നു.',
@@ -104,6 +113,7 @@ const M = {
     auto_note: 'മറ്റേ {first} ആണെങ്കിൽ "മറ്റേത്" എന്ന് പറയൂ.',
   },
   pa: {
+    other_btn: 'ਦੂਜਾ',
     credit: '{name} ਦੇ {amt} ਰੁਪਏ ਉਧਾਰ ਲਿਖ ਦਿੱਤੇ। ਕੁੱਲ {bal}।', payment: '{name} ਦੇ {amt} ਰੁਪਏ ਜਮ੍ਹਾ ਲਿਖ ਦਿੱਤੇ। ਕੁੱਲ {bal}।',
     corrected: 'ਠੀਕ ਹੈ, {name} ਦੇ {amt} ਕਰ ਦਿੱਤੇ। ਕੁੱਲ {bal}।', nothing_to_fix: 'ਠੀਕ ਕਰਨ ਲਈ ਕੁਝ ਨਹੀਂ।',
     today_credit: 'ਅੱਜ {sum} ਰੁਪਏ ਉਧਾਰ ਗਏ।', today_payment: 'ਅੱਜ {sum} ਰੁਪਏ ਵਾਪਸ ਆਏ।',

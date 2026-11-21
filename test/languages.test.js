@@ -84,6 +84,6 @@ test('script decides the reply language; Devanagari follows the shopkeeper\'s ch
 test('all ten languages have a Gnani STT/TTS config and a complete reply table', () => {
   assert.equal(Object.keys(LANGS).length, 10);
   assert.deepEqual([...supportedReplyLangs].sort(), Object.keys(LANGS).sort());
-  const keys = Object.keys(t('hi', 'nope') === 'nope' ? { credit: 1, payment: 1, corrected: 1, nothing_to_fix: 1, today_credit: 1, today_payment: 1, no_account: 1, balance: 1, total: 1, which_first: 1, which: 1, or: 1, ask_dir: 1, whose: 1, not_understood: 1, ai: 1, wiped: 1, moved: 1, cant_move: 1, auto_note: 1 } : {});
+  const keys = Object.keys(t('hi', 'nope') === 'nope' ? { credit: 1, payment: 1, corrected: 1, nothing_to_fix: 1, today_credit: 1, today_payment: 1, no_account: 1, balance: 1, total: 1, which_first: 1, which: 1, or: 1, ask_dir: 1, whose: 1, not_understood: 1, ai: 1, wiped: 1, moved: 1, cant_move: 1, auto_note: 1, other_btn: 1 } : {});
   for (const L of supportedReplyLangs) for (const k of keys) if (!(L === 'en' && k === 'or')) assert.notEqual(t(L, k), k, `${L}.${k} missing`);
 });
