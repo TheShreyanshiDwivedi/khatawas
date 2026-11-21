@@ -48,21 +48,31 @@ export function openStt({ hotwords = [], language = process.env.GNANI_STT_LANGUA
 }
 
 export function bridgeStt(client) {
-  let stt = null, stopped = false, doneTimer = null;
+  let stt = null, stopped = false, doneTimer = null, started = 0, finals = 0, sentDone = false;
   const send = (o) => client.readyState === 1 && client.send(JSON.stringify(o));
-  const scheduleDone = (ms) => { clearTimeout(doneTimer); doneTimer = setTimeout(() => send({ type: 'done' }), ms); };
+  const finish = () => { if (!sentDone) { sentDone = true; send({ type: 'done' }); } };
+  const schedule = (ms) => { clearTimeout(doneTimer); doneTimer = setTimeout(finish, ms); };
+  // Prisma announces every segment with `speech_start` and answers each with one `transcript`. After the shopkeeper lets go we
+  // know exactly whether a segment is still on its way, so we neither cut a sentence short nor wait a fixed time for nothing.
+  const settle = () => {
+    if (!stopped) return;
+    if (started > finals) schedule(2500);   // a segment is still being transcribed: wait for it (safety cap 2.5 s)
+    else if (finals > 0) schedule(120);     // everything announced has arrived
+  };
 
   client.on('message', (data, isBinary) => {
     if (isBinary) { stt?.sendPcm(Buffer.from(data)); return; }
     const msg = JSON.parse(data.toString());
     if (msg.type === 'start') {
-      stopped = false;
+      stopped = false; started = 0; finals = 0; sentDone = false;
       stt = openStt({ hotwords: msg.hotwords });
       stt.ws.on('message', (m) => {
         let r; try { r = JSON.parse(m.toString()); } catch { return; }
-        if (r.type === 'transcript' && r.text) {
-          send({ type: 'final', text: r.text, latency: r.latency, lang: r.detected_language_code });
-          if (stopped) scheduleDone(800); // wait for any following segment, then finish
+        if (r.type === 'speech_start') started += 1;
+        else if (r.type === 'transcript') {
+          finals += 1;
+          if (r.text) send({ type: 'final', text: r.text, latency: r.latency, lang: r.detected_language_code });
+          settle();
         } else if (r.type === 'error') send({ type: 'error', message: r.message });
       });
       stt.ws.on('unexpected-response', (_q, res) => send({ type: 'error', message: `Gnani rejected the connection (HTTP ${res.statusCode}). Check GNANI_API_KEY.` }));
@@ -70,7 +80,8 @@ export function bridgeStt(client) {
     } else if (msg.type === 'stop' && stt) {
       stopped = true;
       stt.finish();
-      scheduleDone(2500); // if no speech was detected Gnani sends nothing; don't hang the sale
+      // If nothing was ever heard Prisma sends nothing; if segments are pending we wait for them. Either way never hang the sale.
+      if (started > finals) schedule(2500); else if (finals > 0) schedule(250); else schedule(1500);
     }
   });
   client.on('close', () => { clearTimeout(doneTimer); stt?.ws.close(); });

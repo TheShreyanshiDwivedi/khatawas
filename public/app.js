@@ -20,6 +20,7 @@ const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>'
 
 async function process(text) {
   const t0 = performance.now();
+  window.__lastText = text; // debug aid: raw transcript as received
   $('heard').textContent = text || '—';
   if (!text) return;
   const r = await handleTranscript(text, ledger);
