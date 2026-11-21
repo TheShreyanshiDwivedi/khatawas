@@ -6,7 +6,10 @@
 // The API key stays on the server; the browser only ever talks to /stt and /tts on this server.
 import WebSocket from 'ws';
 
-export const gnaniConfigured = () => !!(process.env.GNANI_API_KEY && process.env.GNANI_STT_WS_URL);
+// The two endpoints are public (not secrets), so they default here; only GNANI_API_KEY must be provided.
+const STT_URL = () => process.env.GNANI_STT_WS_URL || 'wss://api.vachana.ai/stt/v3/stream';
+const TTS_URL = () => process.env.GNANI_TTS_WS_URL || 'wss://api.vachana.ai/api/v1/tts';
+export const gnaniConfigured = () => !!process.env.GNANI_API_KEY;
 
 const FRAME = 1024; // 512 samples x 2 bytes = 32 ms at 16 kHz
 
@@ -14,7 +17,7 @@ const FRAME = 1024; // 512 samples x 2 bytes = 32 ms at 16 kHz
 const keyterms = (list) => JSON.stringify((list || []).filter((w) => /^[\x20-\x7e]+$/.test(w)).slice(0, 50));
 
 export function openStt({ hotwords = [], language = process.env.GNANI_STT_LANGUAGE || 'hi-IN', format = process.env.GNANI_STT_FORMAT || 'codemix' } = {}) {
-  const ws = new WebSocket(process.env.GNANI_STT_WS_URL, {
+  const ws = new WebSocket(STT_URL(), {
     headers: {
       'x-api-key-id': process.env.GNANI_API_KEY,
       language_code: language,
@@ -90,7 +93,7 @@ export function bridgeStt(client) {
 // Synthesize via Timbre v3.0 over WebSocket. onAudio(Buffer) is called per chunk as it arrives (raw PCM16 mono).
 export function synthesize(text, { sampleRate = 24000, onAudio, language = process.env.GNANI_TTS_LANGUAGE || 'hi-en', voice = process.env.GNANI_TTS_VOICE || 'Shivani' } = {}) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(process.env.GNANI_TTS_WS_URL, { headers: { 'X-API-Key-ID': process.env.GNANI_API_KEY } });
+    const ws = new WebSocket(TTS_URL(), { headers: { 'X-API-Key-ID': process.env.GNANI_API_KEY } });
     let firstAt = null;
     const t0 = Date.now();
     ws.on('open', () => ws.send(JSON.stringify({
