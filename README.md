@@ -25,6 +25,28 @@ A shopkeeper holds a button and talks naturally, the way they already speak:
 | "Aaj kitna udhaar gaya?" | Speaks the total credit given today |
 | "Ramesh ka total?" | Speaks Ramesh's balance |
 
+## See it working
+
+These are screenshots of the real app (not mock-ups), taken while driving it with synthetic Gnani Timbre voices through the real Prisma speech path. The caption on the right is added for the demo video; the app itself is the cream-coloured panel. Watch the full run in the [demo video](https://youtu.be/r4Fw9ceKVoY).
+
+| | |
+|---|---|
+| ![Idle screen](docs/screenshots/1-idle.png)<br>**1. One button.** Hold, speak, let go. Customer balances are listed below. | ![Credit booked](docs/screenshots/2-credit.png)<br>**2. Credit.** "Ramesh Kumar का तीन सौ उधार" is heard, ₹300 is added, and the app says "Ramesh Kumar ka 300 rupaye udhaar likh diya. Total 400." |
+| ![Payment booked](docs/screenshots/3-payment.png)<br>**3. Payment.** "Sunita का डेढ़ सौ दिया" is read as ₹150 received (*dedh sau*). | ![Correction](docs/screenshots/4-correction.png)<br>**4. Correction.** "नहीं चार सौ" fixes the last entry to ₹400. |
+| ![Which Ramesh](docs/screenshots/5-which-ramesh.png)<br>**5. Ambiguity.** Two Rameshes exist, so the app asks "Kaun sa Ramesh?" instead of guessing. | ![Answered in one word](docs/screenshots/6-answer-one-word.png)<br>**6. One-word answer.** Saying "गुप्ता" completes the pending entry for Ramesh Gupta. |
+| ![Spoken total](docs/screenshots/7-spoken-total.png)<br>**7. Questions.** "आज कितना उधार गया?" is answered aloud: "Aaj 1540 rupaye udhaar gaya." | ![Delete all data](docs/screenshots/8-delete-all.png)<br>**8. Privacy.** "Delete all data" wipes the ledger and its encryption key. |
+
+The small tags above each reply show how it was understood (`parser`, `clarify`, or `qwen`) and the time to reply. The microphone path (speech to text) shows the Hindi-script transcript in the "Heard" box.
+
+## Try it in 2 minutes
+
+1. Open the live link from the submission form (it ends in `?code=...`). The first open after idle can take up to 50 seconds on the free host.
+2. Allow the microphone. Type `Ramesh Kumar` and `Ramesh Gupta` into **Add customer name** (it helps the speech model recognise names).
+3. **Hold the big button** (or the space bar), say *"Ramesh Kumar ka teen sau udhaar"*, and release. The reply is spoken and the table updates.
+4. Try: *"Sunita ne dedh sau diye"*, *"Nahi, chaar sau"*, *"Ramesh ka paanch sau udhaar"* (it will ask which Ramesh), *"Aaj kitna udhaar gaya"*.
+5. No microphone? Type the same sentence in the text box and press **Send**. The same parser runs.
+6. **Delete all data** (bottom right) wipes everything.
+
 ## How it works
 
 ```mermaid
