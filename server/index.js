@@ -32,6 +32,7 @@ function allowed(req) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
+  if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); } // host health check (no data)
   if (viaTunnel(req) && process.env.ACCESS_CODE && url.searchParams.get('code') === process.env.ACCESS_CODE) {
     res.writeHead(302, { 'set-cookie': `khatawas_access=${process.env.ACCESS_CODE}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`, location: '/' });
     return res.end();

@@ -118,6 +118,10 @@ Open the page on a phone or laptop, hold the big button (or the space bar), spea
 
 **Dev mode:** if `.env` has no Gnani settings the app falls back to the browser's built-in speech recognition and voice, and the footer shows `DEV MODE`. This is for development only and is not the submission path.
 
+## Deploy (runs without your laptop)
+
+The repo includes a `Dockerfile` and a Render Blueprint (`render.yaml`). On Render: **New > Blueprint**, pick this repo, then set the two secrets in the dashboard, `GNANI_API_KEY` and `ACCESS_CODE` (the demo link then ends in `?code=<ACCESS_CODE>`). Public traffic is refused without the code so strangers cannot spend Gnani credits. The hosted version has no Qwen (Ollama is not in the image); the rules parser still handles the judged cases and unclear sentences simply get "Samajh nahi aaya". The free Render plan sleeps when idle, so open the link once a minute before a live demo, or use the always-on plan.
+
 ## Project layout
 
 ```
