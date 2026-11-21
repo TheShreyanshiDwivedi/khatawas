@@ -7,3 +7,6 @@ dist
 .DS_Store
 docs/qwen-pull.log
 public/_demo/
+.agents/
+.claude/
+skills-lock.json
