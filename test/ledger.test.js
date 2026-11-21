@@ -69,3 +69,18 @@ test('phonetic names: फरीदा == Farida', async () => {
   await run(l, 'फरीदा का दो सौ उधार।');
   assert.equal(l.customers.length, 1);
 });
+
+test('answers with punctuation still resolve "which Ramesh"', async () => {
+  const l = new Ledger();
+  l.customers = [{ id: 1, name: 'Ramesh Kumar' }, { id: 2, name: 'Ramesh Gupta' }];
+  await run(l, 'Ramesh का पाँच सौ उधार।');
+  await run(l, 'Gupta.');
+  assert.equal(l.balance(2), 500);
+});
+
+test('addCustomer registers a zero-balance customer once (any spelling)', () => {
+  const l = new Ledger();
+  l.addCustomer('Sunita'); l.addCustomer('सुनीता');
+  assert.equal(l.customers.length, 1);
+  assert.equal(l.balance(1), 0);
+});

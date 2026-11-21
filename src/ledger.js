@@ -4,6 +4,15 @@ import { nameKey, displayName } from './translit.js';
 export class Ledger {
   constructor() { this.customers = []; this.txns = []; this.nextId = 1; this.pending = null; }
 
+  // Register a customer with no entry, so their name is known to Prisma as a keyterm before it is spoken.
+  addCustomer(name) {
+    const key = nameKey(name);
+    if (!key) return null;
+    let c = this.customers.find((x) => nameKey(x.name) === key);
+    if (!c) { c = { id: this.customers.length + 1, name: displayName(name.trim()) }; this.customers.push(c); }
+    return c;
+  }
+
   customerList() { return this.customers.map((c) => ({ id: c.id, name: c.name })); }
 
   _resolve(ref, create = true) {
@@ -62,7 +71,7 @@ export class Ledger {
   // Answer to a "which Ramesh?" question
   resolvePending(text) {
     if (!this.pending) return null;
-    const w = text.toLowerCase();
+    const w = text.toLowerCase().replace(/[.,।!?;:]/g, ' ').replace(/\s+/g, ' ').trim(); // Prisma adds punctuation ("Gupta.")
     const keys = w.split(/\s+/).map((t) => nameKey(t));
     const pick = this.pending.options.find((o) => keys.includes(nameKey(o.name.split(' ').pop())) || w.includes(o.name.toLowerCase()));
     if (!pick) return null;

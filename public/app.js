@@ -41,7 +41,7 @@ async function down(e) {
   ptt.classList.add('on'); ptt.textContent = 'Listening…';
   try {
     listener ||= await createListener({
-      hotwords: ledger.customers.map((c) => c.name), // top customer names biased into STT
+      hotwords: () => ledger.customers.map((c) => c.name), // customer names biased into STT, re-read on every press
       onPartial: (t) => { $('heard').textContent = t; }, useGnani,
     });
     await listener.start();
@@ -58,6 +58,12 @@ addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target === docu
 addEventListener('keyup', (e) => { if (e.code === 'Space' && e.target === document.body) up(); });
 
 $('typed').addEventListener('submit', (e) => { e.preventDefault(); const v = $('txt').value.trim(); $('txt').value = ''; process(v); });
+$('addcust').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const v = $('newcust').value.trim(); $('newcust').value = '';
+  if (!v) return;
+  ledger.addCustomer(v); await saveLedger(ledger.toJSON()); listener = null; render(); // new listener so the name list is sent next time
+});
 $('wipe').addEventListener('click', async () => { await wipeAll(); ledger = new Ledger(); render(); $('reply').textContent = 'Saara data delete ho gaya.'; });
 
 render();

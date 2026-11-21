@@ -23,7 +23,7 @@ export async function createListener({ hotwords = [], onPartial = () => {}, useG
       ws = new WebSocket(wsUrl('/stt'));
       ws.binaryType = 'arraybuffer';
       await new Promise((r) => { ws.onopen = r; });
-      ws.send(JSON.stringify({ type: 'start', hotwords: hotwords.slice(0, 50) }));
+      ws.send(JSON.stringify({ type: 'start', hotwords: (typeof hotwords === 'function' ? hotwords() : hotwords).slice(0, 50) })); // read fresh each press
       ws.onmessage = (e) => {
         const m = JSON.parse(e.data);
         if (m.type === 'partial') onPartial(m.text);

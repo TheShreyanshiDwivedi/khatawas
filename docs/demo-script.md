@@ -6,6 +6,7 @@
 ## Before you record (checklist)
 - [ ] `npm start`, `.env` filled in, footer reads **STT: Gnani Prisma v3 · TTS: Timbre v3** (not DEV MODE).
 - [ ] Tap **Delete all data** so the ledger is empty. Synthetic names only.
+- [ ] Type **Sunita** into the **Add customer** box and press Add (so Prisma knows the name before you say it; without this it once heard "Sunita" as "Punita").
 - [ ] Do the silent seed (typed, off camera, in this order): `Ramesh Kumar ka 100 udhaar` and `Ramesh Gupta ka 200 udhaar`. This gives the app two customers called Ramesh. The numbers quoted in the scenes below were verified by running this exact sequence (scenes 2–7) through the engine.
 - [ ] Hold the phone near a speaker playing street/shop noise for scene 4.
 - [ ] Screen recording on, audio from the phone speaker captured so the spoken replies are heard.
