@@ -2,7 +2,7 @@
 
 > Push-to-talk. Say it once, the khata is updated. No typing, no tapping, no stopping the sale.
 
-**Team:** ANTHROMINDS · **Team ID:** 4FFAF822E514 · **College:** Dayananda Sagar Academy of Technology and Management & DSCE
+**Team:** ANTHROMINDS · **Team ID:** 4FFAF822E514 · **College:** Dayananda Sagar Academy of Technology and Management & Dayananda Sagar College of Engineering
 **Hackathon:** Gnani Voice Hackathon — Voice Khata for Kirana Stores
 **Demo video:** _add link_ · **Live demo:** _add link_
 
