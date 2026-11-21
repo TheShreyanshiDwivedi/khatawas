@@ -37,8 +37,14 @@ const DEV_NUM = ('एक दो तीन चार पांच छह सा�
  'इकतालीस बयालीस तैंतालीस चौवालीस पैंतालीस छियालीस सैंतालीस अड़तालीस उनचास पचास इक्यावन बावन तिरपन चौवन पचपन छप्पन सत्तावन अट्ठावन उनसठ साठ ' +
  'इकसठ बासठ तिरसठ चौंसठ पैंसठ छियासठ सड़सठ अड़सठ उनहत्तर सत्तर इकहत्तर बहत्तर तिहत्तर चौहत्तर पचहत्तर छिहत्तर सतहत्तर अठहत्तर उनासी अस्सी ' +
  'इक्यासी बयासी तिरासी चौरासी पचासी छियासी सत्तासी अट्ठासी नवासी नब्बे इक्यानवे बानवे तिरानवे चौरानवे पचानवे छियानवे सत्तानवे अट्ठानवे निन्यानवे').split(' ');
+// Digit blocks of every Indic script Prisma can return (Devanagari, Bengali, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam)
+const DIGIT_BLOCKS = [0x966, 0x9e6, 0xa66, 0xae6, 0xb66, 0xbe6, 0xc66, 0xce6, 0xd66];
 export function normalizeDigits(s) {
-  return s.replace(/[०-९]/g, (d) => String(DEV.indexOf(d)));
+  return s.replace(/[\u0966-\u096f\u09e6-\u09ef\u0a66-\u0a6f\u0ae6-\u0aef\u0b66-\u0b6f\u0be6-\u0bef\u0c66-\u0c6f\u0ce6-\u0cef\u0d66-\u0d6f]/g, (d) => {
+    const cp = d.codePointAt(0);
+    const base = DIGIT_BLOCKS.find((b) => cp >= b && cp <= b + 9);
+    return String(cp - base);
+  });
 }
 
 export function isNumberToken(t) {
@@ -101,3 +107,16 @@ export function findAmount(tokens) {
 // Devanagari entries (added last: DEV_NUM is defined above this point in the file)
 DEV_NUM.forEach((w, i) => { SMALL[canon(w)] = i + 1; });
 Object.assign(SMALL, { [canon('पाँच')]: 5, [canon('छः')]: 6, [canon('छे')]: 6, [canon('पन्द्रह')]: 15, [canon('पंद्रह')]: 15, [canon('छ')]: 6 });
+
+// Marathi and Kannada spoken numbers. Prisma's `transcribe` format already returns digits, so these only matter for typed
+// input and for the rare transcript that still spells a number out. Round numbers are added as plain values and summed.
+const mk = (obj) => Object.entries(obj).forEach(([w, v]) => { SMALL[canon(w)] = v; });
+mk({ // Marathi
+  'एक': 1, 'दोन': 2, 'तीन': 3, 'चार': 4, 'पाच': 5, 'सहा': 6, 'सात': 7, 'आठ': 8, 'नऊ': 9, 'दहा': 10, 'अकरा': 11, 'बारा': 12, 'पंधरा': 15, 'वीस': 20, 'पंचवीस': 25, 'तीस': 30, 'चाळीस': 40, 'पन्नास': 50, 'साठ': 60, 'सत्तर': 70, 'ऐंशी': 80, 'नव्वद': 90,
+  'शंभर': 100, 'दोनशे': 200, 'तीनशे': 300, 'चारशे': 400, 'पाचशे': 500, 'सहाशे': 600, 'सातशे': 700, 'आठशे': 800, 'नऊशे': 900,
+});
+mk({ // Kannada
+  'ಒಂದು': 1, 'ಎರಡು': 2, 'ಮೂರು': 3, 'ನಾಲ್ಕು': 4, 'ಐದು': 5, 'ಆರು': 6, 'ಏಳು': 7, 'ಎಂಟು': 8, 'ಒಂಬತ್ತು': 9, 'ಹತ್ತು': 10, 'ಹನ್ನೆರಡು': 12, 'ಹದಿನೈದು': 15, 'ಇಪ್ಪತ್ತು': 20, 'ಇಪ್ಪತ್ತೈದು': 25, 'ಮೂವತ್ತು': 30, 'ನಲವತ್ತು': 40, 'ಐವತ್ತು': 50, 'ಅರವತ್ತು': 60, 'ಎಪ್ಪತ್ತು': 70, 'ಎಂಬತ್ತು': 80, 'ತೊಂಬತ್ತು': 90,
+  'ನೂರು': 100, 'ಇನ್ನೂರು': 200, 'ಇನ್ನೂರ': 200, 'ಮುನ್ನೂರು': 300, 'ಮುನ್ನೂರ': 300, 'ನಾನೂರು': 400, 'ನಾನೂರ': 400, 'ಐನೂರು': 500, 'ಐನೂರ': 500, 'ಆರುನೂರು': 600, 'ಏಳುನೂರು': 700, 'ಎಂಟುನೂರು': 800, 'ಒಂಬೈನೂರು': 900,
+});
+Object.assign(MULT, { 'हजार': 1000, 'लाख': 100000, 'ಸಾವಿರ': 1000, 'ಲಕ್ಷ': 100000 });

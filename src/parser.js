@@ -1,8 +1,10 @@
 // Deterministic intent parser: transcript -> list of actions. No network, runs in well under 5 ms.
 import { normalizeDigits, findAmount, canon, isNumberToken } from './numbers.js';
 import { nameKey } from './translit.js';
+import { STEMS, NAME_SUFFIXES, POSTPOS_EXTRA, HONOR_EXTRA, STOP_EXTRA, AND_WORDS } from './lang.js';
 
-const HONOR = new Set(['ji', 'जी', 'bhai', 'bhaiya', 'bhabhi', 'sahab', 'sahib', 'didi', 'uncle', 'aunty', 'madam', 'sir', 'seth', 'bhaisaab']);
+const HONOR_BASE = ['ji', 'जी', 'bhai', 'bhaiya', 'bhabhi', 'sahab', 'sahib', 'didi', 'uncle', 'aunty', 'madam', 'sir', 'seth', 'bhaisaab'];
+const HONOR = new Set([...HONOR_BASE, ...HONOR_EXTRA]);
 
 const CREDIT = ['sudhaar', 'सुधार', 'maal', 'saman', 'samaan', 'सामान', 'माल', 'udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye', 'उधारी', 'बाकी', 'लिखो', 'लिख', 'लिया'];
 const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid', 'pay', 'payment', 'wapas', 'chukaya', 'chuka', 'mila', 'received', 'gave', 'de gaya', 'de gayi', 'cleared', 'settle', 'दिया', 'दिये', 'दिए', 'दी', 'दे दिए', 'दे गया', 'दे गयी', 'दे गई', 'जमा', 'वापस', 'चुकाया', 'मिला', 'दे दिया'];
@@ -11,7 +13,8 @@ const CORRECTION = ['nahi', 'nahin', 'nai', 'no', 'galat', 'sorry', 'matlab', 'a
 // Words that hint at a ledger entry without saying credit/payment outright (e.g. "atta chadha do"): Qwen may read these.
 const WEAK_CUES = ['chadha', 'chadhao', 'chadhana', 'khate', 'khata', 'ration', 'atta', 'doodh', 'चढ़ा', 'चढ़ाओ', 'खाते', 'खाता', 'राशन', 'आटा', 'दूध'];
 const POSTPOS = ['ka', 'ki', 'ke', 'ko', 'se', 'ne', 'का', 'की', 'के', 'को', 'से', 'ने'];
-const STOP = new Set(['कल', 'आज', 'परसों', 'नरसों', 'और', 'है', 'था', 'थी', 'थे', 'रुपये', 'रुपए', 'रूपये', 'टोटल', 'कितना', 'उधार', 'उधारी', 'दिया', 'जमा', 'बाकी', 'नहीं', 'नही', 'गलत', 'मतलब', 'कुल', 'सब', 'सबका', 'kul', 'sab', 'saara', 'sabka', 'aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to'].map(canon));
+const OTHER = ['doosra', 'dusra', 'dusre', 'doosre', 'other'];
+const STOP = new Set([...OTHER, ...STOP_EXTRA, 'doosra', 'dusra', 'कल', 'आज', 'परसों', 'नरसों', 'और', 'है', 'था', 'थी', 'थे', 'रुपये', 'रुपए', 'रूपये', 'टोटल', 'कितना', 'उधार', 'उधारी', 'दिया', 'जमा', 'बाकी', 'नहीं', 'नही', 'गलत', 'मतलब', 'कुल', 'सब', 'सबका', 'kul', 'sab', 'saara', 'sabka', 'aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to'].map(canon));
 
 export function normalize(text) {
   return canon(normalizeDigits(text).replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, '')) // invisible zero-width marks Prisma may emit
@@ -28,12 +31,30 @@ function hasAny(s, words) {
   return words.some((w) => new RegExp(`(^|\\s)${canon(w)}(\\s|$)`, 'u').test(s));
 }
 
+// Prefix match for the regional languages, which glue endings onto words (ಕೊಟ್ಟರು, ಕೊಟ್ಟಿದ್ದಾರೆ ...).
+const stemHit = (tok, stems) => stems.some((st) => tok.startsWith(canon(st)));
+const hasStem = (s, stems) => s.split(' ').some((t) => stemHit(t, stems));
+const isRegional = (lang) => !!lang && lang !== 'hi' && lang !== 'en';
+const keywordTok = (t) => ['credit', 'payment', 'query', 'queryStrong', 'correction', 'other'].some((k) => stemHit(t, STEMS[k]));
+// Case ending glued to a regional-language name: "रमेशला" -> "रमेश", "ರಮೇಶನಿಗೆ" -> "ರಮೇಶ"
+const CANON_SUFFIXES = NAME_SUFFIXES.map(canon);
+export function stripSuffix(tok) {
+  if (!/[\u0900-\u0d7f]/.test(tok)) return tok;
+  for (const sfx of CANON_SUFFIXES) if (tok.length - sfx.length >= 2 && tok.endsWith(sfx)) return tok.slice(0, tok.length - sfx.length);
+  return tok;
+}
+
 export function relativeDate(clause, now = new Date()) {
   let off = null;
   if (/(^|\s)(narso|नरसों)(\s|$)/.test(clause)) off = -3;
   else if (/(^|\s)(parso|परसों)(\s|$)/.test(clause)) off = -2;
   else if (/(^|\s)(kal|yesterday|कल)(\s|$)/.test(clause)) off = -1;
   else if (/(^|\s)(aaj|today|abhi|आज)(\s|$)/.test(clause)) off = 0;
+  if (off === null) {
+    const toks = clause.split(' ');
+    if (toks.some((t) => STEMS.yesterday.map(canon).includes(t))) off = -1;
+    else if (toks.some((t) => STEMS.today.map(canon).includes(t))) off = 0;
+  }
   if (off === null) return null;
   const d = new Date(now);
   d.setDate(d.getDate() + off);
@@ -41,12 +62,15 @@ export function relativeDate(clause, now = new Date()) {
 }
 
 // Known customers (hotword list) are matched first; otherwise the word before ka/ki/ke/ko.
-export function findCustomer(clause, known = []) {
+export function findCustomer(clause, known = [], lang = 'hi') {
+  const reg = isRegional(lang);
   const toks = clause.split(' ').filter((t) => !HONOR.has(t));
-  const isName = (t) => t && /^\p{L}[\p{L}\p{M}]*$/u.test(t) && !STOP.has(t) && !isNumberToken(canon(t));
+  const isName = (t) => t && /^\p{L}[\p{L}\p{M}]*$/u.test(t) && !STOP.has(t) && !isNumberToken(canon(t)) && !(reg && keywordTok(t));
+  const strip = (t) => (reg ? stripSuffix(t) : t);
+  const POST = reg ? POSTPOS.concat(POSTPOS_EXTRA.map(canon)) : POSTPOS;
   // A spoken full name ("ramesh gupta ka") that matches nobody is a NEW customer, not the first-name match.
   for (let i = 2; i < toks.length; i++) {
-    if (POSTPOS.includes(toks[i]) && isName(toks[i - 1]) && isName(toks[i - 2])) {
+    if (POST.includes(toks[i]) && isName(toks[i - 1]) && isName(toks[i - 2])) {
       const full = `${toks[i - 2]} ${toks[i - 1]}`;
       const exact = known.find((k) => nameKey(k.name) === nameKey(full));
       if (exact) return { matches: [exact], name: null };
@@ -57,22 +81,22 @@ export function findCustomer(clause, known = []) {
   for (const k of known) {
     const first = k.name.toLowerCase().split(' ')[0];
     const fk = nameKey(first);
-    if (toks.some((t) => isName(t) && nameKey(t) === fk) || clause.includes(k.name.toLowerCase())) hits.push(k);
+    if (toks.some((t) => isName(t) && (nameKey(t) === fk || nameKey(strip(t)) === fk)) || clause.includes(k.name.toLowerCase())) hits.push(k);
   }
   if (hits.length) {
     const typed = hits.filter((k) => clause.includes(k.name.toLowerCase()));
     return { matches: typed.length ? typed : hits, name: null };
   }
   for (let i = 1; i < toks.length; i++) {
-    if (POSTPOS.includes(toks[i]) && isName(toks[i - 1])) {
+    if (POST.includes(toks[i]) && isName(toks[i - 1])) {
       // keep up to two name words: "ramesh kumar ka" -> "ramesh kumar"
       const prev = toks[i - 2];
       const two = isName(prev);
-      return { matches: [], name: two ? `${prev} ${toks[i - 1]}` : toks[i - 1] };
+      return { matches: [], name: two ? `${prev} ${strip(toks[i - 1])}` : strip(toks[i - 1]) };
     }
   }
   const first = toks.find((t) => isName(t));
-  return { matches: [], name: first && toks.indexOf(first) === 0 ? first : null };
+  return { matches: [], name: first && toks.indexOf(first) === 0 ? strip(first) : null };
 }
 
 function titleCase(s) {
@@ -80,7 +104,7 @@ function titleCase(s) {
 }
 
 function splitClauses(s) {
-  const parts = s.split(/\s*[,;.]\s*|\s+(?:aur|and|phir|then|और|फिर)\s+/u).map((c) => c.trim()).filter(Boolean);
+  const parts = s.split(new RegExp(`\\s*[,;.]\\s*|\\s+(?:aur|and|phir|then|और|फिर|${AND_WORDS.join('|')})\\s+`, 'u')).map((c) => c.trim()).filter(Boolean);
   // "मोहन, का सौ रुपए ..." : a comma between a name and its postposition does not start a new entry.
   for (let i = 1; i < parts.length; i++) {
     if (POSTPOS.includes(parts[i].split(' ')[0]) && parts[i - 1].split(' ').length <= 2) { parts[i] = `${parts[i - 1]} ${parts[i]}`; parts[i - 1] = ''; }
@@ -120,7 +144,7 @@ function splitByAmounts(clause) {
   const out = []; let from = 0;
   for (let k = 0; k < runs.length - 1; k++) {
     let cut = -1;
-    for (let i = runs[k].end; i < runs[k + 1].start; i++) if (kw.has(toks[i])) cut = i + 1;
+    for (let i = runs[k].end; i < runs[k + 1].start; i++) if (kw.has(toks[i]) || stemHit(toks[i], STEMS.credit) || stemHit(toks[i], STEMS.payment)) cut = i + 1;
     if (cut < 0) { cut = runs[k + 1].start; if (cut > from && dates.has(toks[cut - 1])) cut -= 1; }
     out.push(toks.slice(from, cut).join(' '));
     from = cut;
@@ -131,7 +155,7 @@ function splitByAmounts(clause) {
 
 // parse(): returns { actions: [...], needs_llm: bool }
 // action kinds: credit | payment | correction | query_total | query_today | query_customer | clarify
-export function parse(text, { customers = [], now = new Date() } = {}) {
+export function parse(text, { customers = [], now = new Date(), lang = 'hi' } = {}) {
   const s = normalize(text);
   if (!s) return { actions: [], needs_llm: false };
   const clauses = splitClauses(s).flatMap(splitByAmounts);
@@ -144,13 +168,19 @@ export function parse(text, { customers = [], now = new Date() } = {}) {
     const toks = clause.split(' ');
     const amt = findAmount(toks);
     const date = relativeDate(clause, now);
-    const isCorrection = hasAny(clause, CORRECTION) && amt;
-    const isQuery = hasAny(clause, QUERY) && !(amt && !hasAny(clause, ['kitna', 'how much']));
-    const cust = findCustomer(clause, customers);
+    const corrWord = hasAny(clause, CORRECTION) || hasStem(clause, STEMS.correction);
+    const isCorrection = corrWord && amt;
+    const isQuery = (hasAny(clause, QUERY) && !(amt && !hasAny(clause, ['kitna', 'how much'])))
+      || (hasStem(clause, STEMS.query) && !(amt && !hasStem(clause, STEMS.queryStrong)));
+    const cust = findCustomer(clause, customers, lang);
     let customerRef = cust;
     if (!cust.matches.length && !cust.name && lastCustomer) customerRef = lastCustomer;
     else if (cust.matches.length || cust.name) lastCustomer = cust;
 
+    if (!amt && !isQuery && (hasAny(clause, OTHER) || hasStem(clause, STEMS.other)) && !hasAny(clause, CREDIT.concat(PAYMENT))) {
+      actions.push({ kind: 'reassign', customer: customerRef }); // "nahi, doosra Rahul"
+      continue;
+    }
     if (isCorrection) {
       actions.push({ kind: 'correction', amount: amt.value, customer: customerRef });
       continue;
@@ -165,8 +195,8 @@ export function parse(text, { customers = [], now = new Date() } = {}) {
       continue;
     }
     if (amt) {
-      const pay = hasAny(clause, PAYMENT);
-      const cred = hasAny(clause, CREDIT);
+      const pay = hasAny(clause, PAYMENT) || hasStem(clause, STEMS.payment);
+      const cred = hasAny(clause, CREDIT) || hasStem(clause, STEMS.credit);
       if (!pay && !cred) {
         // "chaar sau tees" with no verb and no name: Prisma often drops the leading "nahi", so treat it as a correction.
         if (!(customerRef.matches.length || customerRef.name)) actions.push({ kind: 'correction', amount: amt.value, customer: customerRef });
@@ -175,7 +205,7 @@ export function parse(text, { customers = [], now = new Date() } = {}) {
         continue;
       }
       // "diya" with "udhaar" ("udhaar diya") means shopkeeper gave credit -> credit
-      const direction = cred && !(pay && !/udhaar diya|udhar diya|credit diya/.test(clause) && /(^|\s)(jama|wapas|chukaya|paid|mila|received)(\s|$)/.test(clause)) ? 'credit' : 'payment';
+      const direction = cred && !(pay && !/udhaar diya|udhar diya|credit diya/.test(clause) && (/(^|\s)(jama|wapas|chukaya|paid|mila|received)(\s|$)/.test(clause) || hasStem(clause, STEMS.strongPay))) ? 'credit' : 'payment';
       actions.push({ kind: direction, amount: amt.value, customer: customerRef, date: date || now.toISOString().slice(0, 10), raw: clause });
       continue;
     }
