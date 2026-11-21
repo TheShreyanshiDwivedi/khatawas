@@ -22,9 +22,26 @@ const OLLAMA = process.env.OLLAMA_URL || 'http://localhost:11434';
 // Tunnelled requests carry a Cloudflare header and must present ACCESS_CODE via ?code=... (then a cookie) or the cookie.
 const viaTunnel = (req) => !!(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for']);
 const cookieOf = (req) => (req.headers.cookie || '').split(/;\s*/).map((c) => c.split('=')).find(([k]) => k === 'khatawas_access')?.[1];
+// PUBLIC_DEMO=1 opens the app to everyone (no code), protected by usage caps on the paid Gnani sockets instead.
+const PUBLIC = () => process.env.PUBLIC_DEMO === '1';
+const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+const perIp = new Map(); let dayKey = '', dayCount = 0;
+const LIMITS = { perIpPer10Min: Number(process.env.LIMIT_IP_10MIN || 60), perDay: Number(process.env.LIMIT_DAY || 3000) };
+function withinQuota(req) { // each push-to-talk press opens one /stt and one /tts socket
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== dayKey) { dayKey = today; dayCount = 0; }
+  if (dayCount >= LIMITS.perDay) return false;
+  const ip = clientIp(req), now = Date.now();
+  const hits = (perIp.get(ip) || []).filter((t) => now - t < 600000);
+  if (hits.length >= LIMITS.perIpPer10Min) { perIp.set(ip, hits); return false; }
+  hits.push(now); perIp.set(ip, hits); dayCount++;
+  if (perIp.size > 5000) for (const [k, v] of perIp) if (!v.some((t) => now - t < 600000)) perIp.delete(k);
+  return true;
+}
 function allowed(req) {
   const code = process.env.ACCESS_CODE;
   if (!viaTunnel(req)) return true;
+  if (PUBLIC()) return true;
   if (!code) return false; // never serve the public without a code
   const a = Buffer.from(cookieOf(req) || ''), b = Buffer.from(code);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
@@ -65,6 +82,7 @@ server.on('upgrade', (req, sock, head) => {
   if (!allowed(req)) return sock.destroy();
   const p = new URL(req.url, 'http://x').pathname;
   if (p !== '/stt' && p !== '/tts') return sock.destroy();
+  if (PUBLIC() && viaTunnel(req) && !withinQuota(req)) return sock.destroy(); // protects Gnani credits
   wss.handleUpgrade(req, sock, head, (ws) => (p === '/stt' ? bridgeStt(ws) : bridgeTts(ws)));
 });
 
