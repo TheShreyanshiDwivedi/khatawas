@@ -77,7 +77,7 @@ git clone <this repo> && cd khatawas
 npm install
 
 # 1. Gnani credentials (gitignored)
-cp .env.example .env     # then fill in GNANI_API_KEY and the two WebSocket URLs
+cp .env.example .env     # then fill in GNANI_API_KEY (URLs are prefilled)
 
 # 2. Offline fallback model (optional, ~1 GB)
 ollama pull qwen2.5:1.5b
@@ -85,6 +85,7 @@ ollama pull qwen2.5:1.5b
 # 3. Start
 npm start                # http://localhost:3000
 npm test                 # parser + ledger tests
+npm run live-test        # real Gnani round trip (uses your credits)
 ```
 
 Open the page on a phone or laptop, hold the big button (or the space bar), speak, release. You can also type a sentence in the box to test the parser without a microphone.
@@ -108,7 +109,9 @@ test/              node:test suites
 ## Status and honest limitations
 
 - **Working and tested (11 automated tests):** number parsing, credit/payment direction, relative dates, multi-entry sentences, spoken corrections, duplicate-name clarification, queries, ledger persistence logic, parser speed under 5 ms.
-- **Gnani integration:** `server/gnani.js` contains the bridge, but the exact Prisma/Timbre message formats are marked `TODO(gnani-docs)` until verified against a live key. Live latency numbers have not been measured yet and are not claimed here.
+- **Gnani integration (verified live):** `server/gnani.js` follows the Vachana docs (Prisma v3.0 STT WebSocket with `keyterms` hotwords and `format=codemix`; Timbre v3.0 TTS WebSocket). `npm run live-test` speaks a sentence with Timbre, transcribes it with Prisma and parses it. In our runs Prisma returned the transcript about 130-300 ms after the audio was sent and Timbre's first audio arrived in about 440-750 ms. These were short synthetic sentences over a home connection, not a noisy shop, so treat them as indicative, not as a latency guarantee.
+- **Prisma returns final transcripts only** (no partial/interim results), so the screen shows the text after you release the button.
+- **Hindi script:** Prisma answers in Devanagari ("तीन सौ चालीस रुपये उधार"), so the parser understands both Devanagari and romanized Hinglish. Customer names heard in Devanagari that were never typed or biased as hotwords are stored as heard.
 - **Qwen fallback:** wired in, but not yet benchmarked on messy sentences.
 - **Noise robustness:** this build uses the browser's built-in noise suppression and echo cancellation. It has not been tested in real shop noise. Native RNNoise/SpeexDSP is on the roadmap below, not shipped.
 - **Platform:** a web app that runs on a low-end phone's browser. A native Android build is future work.

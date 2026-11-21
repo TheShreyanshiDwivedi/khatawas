@@ -1,33 +1,34 @@
 // Deterministic intent parser: transcript -> list of actions. No network, runs in well under 5 ms.
-import { normalizeDigits, findAmount } from './numbers.js';
+import { normalizeDigits, findAmount, canon } from './numbers.js';
 
-const CREDIT = ['udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye'];
-const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid', 'pay', 'payment', 'wapas', 'chukaya', 'chuka', 'mila', 'received', 'gave', 'de gaya', 'de gayi', 'cleared', 'settle', 'दिया', 'जमा'];
-const QUERY = ['kitna', 'kitni', 'kitne', 'total', 'balance', 'how much', 'batao', 'bata', 'kya hai', 'hisab', 'hisaab', 'कितना'];
-const CORRECTION = ['nahi', 'nahin', 'nai', 'no', 'galat', 'sorry', 'matlab', 'actually', 'correction', 'nhi', 'नहीं'];
-const POSTPOS = ['ka', 'ki', 'ke', 'ko', 'se', 'ne', 'का', 'की', 'के'];
-const STOP = new Set(['kul', 'sab', 'saara', 'sabka', 'aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to']);
+const CREDIT = ['udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye', 'उधारी', 'बाकी', 'लिखो', 'लिख', 'लिया'];
+const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid', 'pay', 'payment', 'wapas', 'chukaya', 'chuka', 'mila', 'received', 'gave', 'de gaya', 'de gayi', 'cleared', 'settle', 'दिया', 'दिये', 'दी', 'जमा', 'वापस', 'चुकाया', 'मिला', 'दे दिया'];
+const QUERY = ['kitna', 'kitni', 'kitne', 'total', 'balance', 'how much', 'batao', 'bata', 'kya hai', 'hisab', 'hisaab', 'कितना', 'कितनी', 'कितने', 'टोटल', 'बैलेंस', 'बताओ', 'बताइए', 'हिसाब'];
+const CORRECTION = ['nahi', 'nahin', 'nai', 'no', 'galat', 'sorry', 'matlab', 'actually', 'correction', 'nhi', 'नहीं', 'नही', 'गलत', 'मतलब'];
+const POSTPOS = ['ka', 'ki', 'ke', 'ko', 'se', 'ne', 'का', 'की', 'के', 'को', 'से', 'ने'];
+const STOP = new Set(['कल', 'आज', 'परसों', 'नरसों', 'और', 'है', 'था', 'थी', 'थे', 'रुपये', 'रुपए', 'रूपये', 'टोटल', 'कितना', 'उधार', 'उधारी', 'दिया', 'जमा', 'बाकी', 'नहीं', 'नही', 'गलत', 'मतलब', 'कुल', 'सब', 'सबका', 'kul', 'sab', 'saara', 'sabka', 'aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to'].map(canon));
 
 export function normalize(text) {
-  return normalizeDigits(text)
+  return canon(normalizeDigits(text))
     .toLowerCase()
     .replace(/₹|rs\.?/g, ' ')
     .replace(/(\d),(\d{3})/g, '$1$2')
-    .replace(/[^\p{L}\p{N}\s,.;]/gu, ' ')
+    .replace(/[।|]/g, '.')
+    .replace(/[^\p{L}\p{M}\p{N}\s,.;]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 function hasAny(s, words) {
-  return words.some((w) => new RegExp(`(^|\\s)${w}(\\s|$)`, 'u').test(s));
+  return words.some((w) => new RegExp(`(^|\\s)${canon(w)}(\\s|$)`, 'u').test(s));
 }
 
 export function relativeDate(clause, now = new Date()) {
   let off = null;
-  if (/(^|\s)(narso)(\s|$)/.test(clause)) off = -3;
-  else if (/(^|\s)(parso)(\s|$)/.test(clause)) off = -2;
-  else if (/(^|\s)(kal|yesterday)(\s|$)/.test(clause)) off = -1;
-  else if (/(^|\s)(aaj|today|abhi)(\s|$)/.test(clause)) off = 0;
+  if (/(^|\s)(narso|नरसों)(\s|$)/.test(clause)) off = -3;
+  else if (/(^|\s)(parso|परसों)(\s|$)/.test(clause)) off = -2;
+  else if (/(^|\s)(kal|yesterday|कल)(\s|$)/.test(clause)) off = -1;
+  else if (/(^|\s)(aaj|today|abhi|आज)(\s|$)/.test(clause)) off = 0;
   if (off === null) return null;
   const d = new Date(now);
   d.setDate(d.getDate() + off);
@@ -72,7 +73,7 @@ function titleCase(s) {
 }
 
 function splitClauses(s) {
-  const parts = s.split(/\s*[,;.]\s*|\s+(?:aur|and|phir|then)\s+/u).map((c) => c.trim()).filter(Boolean);
+  const parts = s.split(/\s*[,;.]\s*|\s+(?:aur|and|phir|then|और|फिर)\s+/u).map((c) => c.trim()).filter(Boolean);
   // A bare correction word ("nahi, 430") belongs to the clause that follows it.
   const out = [];
   for (let i = 0; i < parts.length; i++) {
@@ -82,12 +83,37 @@ function splitClauses(s) {
   return out;
 }
 
+// A sentence like "X ka 500 udhaar kal 200 diya tha" holds two entries with no comma: cut between amounts.
+function splitByAmounts(clause) {
+  const toks = clause.split(' ');
+  const runs = [];
+  for (let pos = 0; pos < toks.length;) {
+    const f = findAmount(toks.slice(pos));
+    if (!f) break;
+    runs.push({ start: pos + f.start, end: pos + f.end });
+    pos += f.end;
+  }
+  if (runs.length < 2) return [clause];
+  const kw = new Set([...CREDIT, ...PAYMENT, 'diya'].flatMap((w) => canon(w).split(' ')));
+  const dates = new Set(['kal', 'parso', 'narso', 'aaj', 'कल', 'परसों', 'नरसों', 'आज']);
+  const out = []; let from = 0;
+  for (let k = 0; k < runs.length - 1; k++) {
+    let cut = -1;
+    for (let i = runs[k].end; i < runs[k + 1].start; i++) if (kw.has(toks[i])) cut = i + 1;
+    if (cut < 0) { cut = runs[k + 1].start; if (cut > from && dates.has(toks[cut - 1])) cut -= 1; }
+    out.push(toks.slice(from, cut).join(' '));
+    from = cut;
+  }
+  out.push(toks.slice(from).join(' '));
+  return out.filter(Boolean);
+}
+
 // parse(): returns { actions: [...], needs_llm: bool }
 // action kinds: credit | payment | correction | query_total | query_today | query_customer | clarify
 export function parse(text, { customers = [], now = new Date() } = {}) {
   const s = normalize(text);
   if (!s) return { actions: [], needs_llm: false };
-  const clauses = splitClauses(s);
+  const clauses = splitClauses(s).flatMap(splitByAmounts);
   const actions = [];
   let lastCustomer = null;
   let unknown = false;
@@ -108,7 +134,7 @@ export function parse(text, { customers = [], now = new Date() } = {}) {
       continue;
     }
     if (isQuery) {
-      const wantsToday = /(^|\s)(aaj|today)(\s|$)/.test(clause) && !(customerRef.matches.length || customerRef.name);
+      const wantsToday = /(^|\s)(aaj|today|आज)(\s|$)/.test(clause) && !(customerRef.matches.length || customerRef.name);
       actions.push(wantsToday
         ? { kind: 'query_today', direction: hasAny(clause, PAYMENT.concat(['aaya', 'wapas'])) ? 'payment' : 'credit' }
         : (customerRef.matches.length || customerRef.name)

@@ -22,11 +22,21 @@ Object.assign(SMALL, {
 });
 delete SMALL.no; delete SMALL.saath_; delete SMALL.sattar_; delete SMALL.assi_; delete SMALL.nabbe_;
 delete SMALL.bees_; delete SMALL.tees_; delete SMALL.teen3;
-const MULT = { sau: 100, sao: 100, hundred: 100, hazaar: 1000, hazar: 1000, thousand: 1000, lakh: 100000, lac: 100000 };
-const FRAC = { dedh: 150, dhai: 250, dhaai: 250 }; // dedh sau = 150, dhai sau = 250
-const SAADE = { saade: 0.5 }; // saade teen sau = 350
+const MULT = { [canon('सौ')]: 100, [canon('हज़ार')]: 1000, [canon('हजार')]: 1000, [canon('लाख')]: 100000, sau: 100, sao: 100, hundred: 100, hazaar: 1000, hazar: 1000, thousand: 1000, lakh: 100000, lac: 100000 };
+const FRAC = { dedh: 150, dhai: 250, dhaai: 250, [canon('डेढ़')]: 150, [canon('डेढ')]: 150, [canon('ढाई')]: 250 }; // dedh sau = 150, dhai sau = 250
+const SAADE = { saade: 0.5, [canon('साढ़े')]: 0.5, [canon('साढे')]: 0.5 }; // saade teen sau = 350
 
 const DEV = '०१२३४५६७८९';
+
+// Canonical form for matching Devanagari: NFC, drop nukta, chandrabindu -> anusvara.
+export function canon(t) {
+  return t.normalize('NFC').normalize('NFD').replace(/\u093c/g, '').normalize('NFC').replace(/\u0901/g, '\u0902');
+}
+const DEV_NUM = ('एक दो तीन चार पांच छह सात आठ नौ दस ग्यारह बारह तेरह चौदह पंद्रह सोलह सत्रह अठारह उन्नीस बीस ' +
+ 'इक्कीस बाईस तेईस चौबीस पच्चीस छब्बीस सत्ताईस अट्ठाईस उनतीस तीस इकतीस बत्तीस तैंतीस चौंतीस पैंतीस छत्तीस सैंतीस अड़तीस उनतालीस चालीस ' +
+ 'इकतालीस बयालीस तैंतालीस चौवालीस पैंतालीस छियालीस सैंतालीस अड़तालीस उनचास पचास इक्यावन बावन तिरपन चौवन पचपन छप्पन सत्तावन अट्ठावन उनसठ साठ ' +
+ 'इकसठ बासठ तिरसठ चौंसठ पैंसठ छियासठ सड़सठ अड़सठ उनहत्तर सत्तर इकहत्तर बहत्तर तिहत्तर चौहत्तर पचहत्तर छिहत्तर सतहत्तर अठहत्तर उनासी अस्सी ' +
+ 'इक्यासी बयासी तिरासी चौरासी पचासी छियासी सत्तासी अट्ठासी नवासी नब्बे इक्यानवे बानवे तिरानवे चौरानवे पचानवे छियानवे सत्तानवे अट्ठानवे निन्यानवे').split(' ');
 export function normalizeDigits(s) {
   return s.replace(/[०-९]/g, (d) => String(DEV.indexOf(d)));
 }
@@ -46,7 +56,7 @@ export function parseNumberRun(tokens) {
       cur += v; lastSmall = v; continue;
     }
     if (t in SAADE) { saade = true; continue; }
-    if (t in FRAC) { cur = FRAC[t]; sawMult = true; if (tokens[i + 1] === 'sau') i++; continue; }
+    if (t in FRAC) { cur = FRAC[t]; sawMult = true; if (tokens[i + 1] === 'sau' || tokens[i + 1] === canon('सौ')) i++; continue; }
     if (t in MULT) {
       const m = MULT[t];
       if (saade) { cur = (cur + 0.5) * m; saade = false; sawMult = true; continue; }
@@ -69,6 +79,7 @@ export function parseNumberRun(tokens) {
 
 // Find the first number in a token list; returns { value, start, end } or null.
 export function findAmount(tokens) {
+  tokens = tokens.map(canon);
   for (let i = 0; i < tokens.length; i++) {
     if (!isNumberToken(tokens[i])) continue;
     // saade/dedh/dhai may begin a run
@@ -80,3 +91,7 @@ export function findAmount(tokens) {
   }
   return null;
 }
+
+// Devanagari entries (added last: DEV_NUM is defined above this point in the file)
+DEV_NUM.forEach((w, i) => { SMALL[canon(w)] = i + 1; });
+Object.assign(SMALL, { [canon('पाँच')]: 5, [canon('छः')]: 6, [canon('छे')]: 6, [canon('पन्द्रह')]: 15, [canon('पंद्रह')]: 15, [canon('छ')]: 6 });

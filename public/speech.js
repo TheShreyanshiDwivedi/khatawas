@@ -27,7 +27,9 @@ export async function createListener({ hotwords = [], onPartial = () => {}, useG
       ws.onmessage = (e) => {
         const m = JSON.parse(e.data);
         if (m.type === 'partial') onPartial(m.text);
-        if (m.type === 'final') { finalText = (finalText + ' ' + m.text).trim(); onPartial(finalText); resolveFinal?.(finalText); }
+        if (m.type === 'final') { finalText = (finalText + ' ' + m.text).trim(); onPartial(finalText); }
+        if (m.type === 'done') resolveFinal?.(finalText);
+        if (m.type === 'error') onPartial(m.message);
       };
       node.port.onmessage = (e) => ws.readyState === 1 && ws.send(e.data);
     },
@@ -35,7 +37,7 @@ export async function createListener({ hotwords = [], onPartial = () => {}, useG
       return new Promise((res) => {
         resolveFinal = res;
         ws.send(JSON.stringify({ type: 'stop' }));
-        setTimeout(() => { res(finalText); ws.close(); }, 1500); // don't hang the sale if the final never comes
+        setTimeout(() => res(finalText), 4000); // safety net: never hang the sale
       });
     },
   };

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
+    "live-test": "node scripts/live-test.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
