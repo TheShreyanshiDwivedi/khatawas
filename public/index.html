@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KHATAWAS</title>
+<style>
+  :root { --ink:#17120E; --cream:#F6EFE3; --saffron:#F5A524; --card:#fffaf0; --mute:#6b5f52; --line:#e6dccb; --bad:#b3261e; --ok:#2e7d32; }
+  @media (prefers-color-scheme: dark) { :root { --ink:#F6EFE3; --cream:#17120E; --card:#221b15; --mute:#b5a894; --line:#3a2f26; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.4 Inter, system-ui, sans-serif; background:var(--cream); color:var(--ink); min-height:100dvh; display:flex; flex-direction:column; }
+  header { padding:14px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); }
+  h1 { font-size:18px; margin:0; letter-spacing:.04em; }
+  .ai { font-size:12px; color:var(--mute); }
+  main { flex:1; padding:16px; display:flex; flex-direction:column; gap:12px; max-width:640px; width:100%; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; }
+  #heard { min-height:48px; font-size:18px; }
+  #reply { font-weight:600; min-height:24px; }
+  #ptt { margin:4px auto; width:132px; height:132px; border-radius:50%; border:0; background:var(--saffron); color:#17120E; font-weight:700; font-size:15px; touch-action:none; user-select:none; -webkit-user-select:none; box-shadow:0 6px 18px #f5a52455; }
+  #ptt.on { transform:scale(.95); background:#e0890a; box-shadow:0 0 0 12px #f5a52433; }
+  table { width:100%; border-collapse:collapse; }
+  td, th { padding:8px 4px; border-bottom:1px solid var(--line); text-align:left; }
+  td:last-child, th:last-child { text-align:right; font-variant-numeric:tabular-nums; }
+  .owes { color:var(--bad); font-weight:600; }
+  form { display:flex; gap:8px; }
+  input { flex:1; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); font:inherit; min-width:0; }
+  button.sec { padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); font:inherit; }
+  footer { padding:10px 16px calc(10px + env(safe-area-inset-bottom)); font-size:12px; color:var(--mute); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .tag { padding:2px 8px; border-radius:99px; border:1px solid var(--line); }
+</style>
+</head>
+<body>
+<header><h1>KHATAWAS</h1><span class="ai" id="aiNote">Main ek AI hoon · I am an AI assistant</span></header>
+<main>
+  <button id="ptt" aria-label="Hold to talk">Hold to talk</button>
+  <div class="card"><div class="ai">Heard</div><div id="heard">—</div></div>
+  <div class="card"><div class="ai">Reply <span class="tag" id="via"></span> <span class="tag" id="ms"></span></div><div id="reply">—</div></div>
+  <form id="typed"><input id="txt" placeholder="or type: Ramesh ka 340 udhaar" autocomplete="off"><button class="sec">Send</button></form>
+  <div class="card"><table><thead><tr><th>Customer</th><th>Baaki (₹)</th></tr></thead><tbody id="rows"></tbody></table></div>
+</main>
+<footer><span id="mode"></span><span>Ledger encrypted on this device (AES-256-GCM)</span><button class="sec" id="wipe">Delete all data</button></footer>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

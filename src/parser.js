@@ -1,0 +1,121 @@
+// Deterministic intent parser: transcript -> list of actions. No network, runs in well under 5 ms.
+import { normalizeDigits, findAmount } from './numbers.js';
+
+const CREDIT = ['udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye'];
+const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid', 'pay', 'payment', 'wapas', 'chukaya', 'chuka', 'mila', 'received', 'gave', 'de gaya', 'de gayi', 'cleared', 'settle', 'दिया', 'जमा'];
+const QUERY = ['kitna', 'kitni', 'kitne', 'total', 'balance', 'how much', 'batao', 'bata', 'kya hai', 'hisab', 'hisaab', 'कितना'];
+const CORRECTION = ['nahi', 'nahin', 'nai', 'no', 'galat', 'sorry', 'matlab', 'actually', 'correction', 'nhi', 'नहीं'];
+const POSTPOS = ['ka', 'ki', 'ke', 'ko', 'se', 'ne', 'का', 'की', 'के'];
+const STOP = new Set(['aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to']);
+
+export function normalize(text) {
+  return normalizeDigits(text)
+    .toLowerCase()
+    .replace(/₹|rs\.?/g, ' ')
+    .replace(/(\d),(\d{3})/g, '$1$2')
+    .replace(/[^\p{L}\p{N}\s,.;]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function hasAny(s, words) {
+  return words.some((w) => new RegExp(`(^|\\s)${w}(\\s|$)`, 'u').test(s));
+}
+
+export function relativeDate(clause, now = new Date()) {
+  let off = null;
+  if (/(^|\s)(narso)(\s|$)/.test(clause)) off = -3;
+  else if (/(^|\s)(parso)(\s|$)/.test(clause)) off = -2;
+  else if (/(^|\s)(kal|yesterday)(\s|$)/.test(clause)) off = -1;
+  else if (/(^|\s)(aaj|today|abhi)(\s|$)/.test(clause)) off = 0;
+  if (off === null) return null;
+  const d = new Date(now);
+  d.setDate(d.getDate() + off);
+  return d.toISOString().slice(0, 10);
+}
+
+// Known customers (hotword list) are matched first; otherwise the word before ka/ki/ke/ko.
+export function findCustomer(clause, known = []) {
+  const toks = clause.split(' ');
+  const hits = [];
+  for (const k of known) {
+    const first = k.name.toLowerCase().split(' ')[0];
+    if (toks.includes(first) || clause.includes(k.name.toLowerCase())) hits.push(k);
+  }
+  if (hits.length) {
+    const typed = hits.filter((k) => clause.includes(k.name.toLowerCase()));
+    return { matches: typed.length ? typed : hits, name: null };
+  }
+  for (let i = 1; i < toks.length; i++) {
+    if (POSTPOS.includes(toks[i]) && !STOP.has(toks[i - 1]) && !/^\d+$/.test(toks[i - 1])) {
+      return { matches: [], name: toks[i - 1] };
+    }
+  }
+  const first = toks.find((t) => !STOP.has(t) && !/^\d/.test(t) && /^\p{L}+$/u.test(t));
+  return { matches: [], name: first && toks.indexOf(first) === 0 ? first : null };
+}
+
+function titleCase(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function splitClauses(s) {
+  const parts = s.split(/\s*[,;.]\s*|\s+(?:aur|and|phir|then)\s+/u).map((c) => c.trim()).filter(Boolean);
+  // A bare correction word ("nahi, 430") belongs to the clause that follows it.
+  const out = [];
+  for (let i = 0; i < parts.length; i++) {
+    if (CORRECTION.includes(parts[i]) && i + 1 < parts.length) { parts[i + 1] = `${parts[i]} ${parts[i + 1]}`; continue; }
+    out.push(parts[i]);
+  }
+  return out;
+}
+
+// parse(): returns { actions: [...], needs_llm: bool }
+// action kinds: credit | payment | correction | query_total | query_today | query_customer | clarify
+export function parse(text, { customers = [], now = new Date() } = {}) {
+  const s = normalize(text);
+  if (!s) return { actions: [], needs_llm: false };
+  const clauses = splitClauses(s);
+  const actions = [];
+  let lastCustomer = null;
+  let unknown = false;
+
+  for (const clause of clauses) {
+    const toks = clause.split(' ');
+    const amt = findAmount(toks);
+    const date = relativeDate(clause, now);
+    const isCorrection = hasAny(clause, CORRECTION) && amt;
+    const isQuery = hasAny(clause, QUERY) && !(amt && !hasAny(clause, ['kitna', 'how much']));
+    const cust = findCustomer(clause, customers);
+    let customerRef = cust;
+    if (!cust.matches.length && !cust.name && lastCustomer) customerRef = lastCustomer;
+    else if (cust.matches.length || cust.name) lastCustomer = cust;
+
+    if (isCorrection) {
+      actions.push({ kind: 'correction', amount: amt.value, customer: customerRef });
+      continue;
+    }
+    if (isQuery) {
+      const wantsToday = /(^|\s)(aaj|today)(\s|$)/.test(clause) && !(customerRef.matches.length || customerRef.name);
+      actions.push(wantsToday
+        ? { kind: 'query_today', direction: hasAny(clause, PAYMENT.concat(['aaya', 'wapas'])) ? 'payment' : 'credit' }
+        : (customerRef.matches.length || customerRef.name)
+          ? { kind: 'query_customer', customer: customerRef }
+          : { kind: 'query_total' });
+      continue;
+    }
+    if (amt) {
+      const pay = hasAny(clause, PAYMENT);
+      const cred = hasAny(clause, CREDIT);
+      if (!pay && !cred) { unknown = true; continue; }
+      // "diya" with "udhaar" ("udhaar diya") means shopkeeper gave credit -> credit
+      const direction = cred && !(pay && !/udhaar diya|udhar diya|credit diya/.test(clause) && /(^|\s)(jama|wapas|chukaya|paid|mila|received)(\s|$)/.test(clause)) ? 'credit' : 'payment';
+      actions.push({ kind: direction, amount: amt.value, customer: customerRef, date: date || now.toISOString().slice(0, 10), raw: clause });
+      continue;
+    }
+    unknown = true;
+  }
+  return { actions, needs_llm: unknown || actions.length === 0 };
+}
+
+export { titleCase };
