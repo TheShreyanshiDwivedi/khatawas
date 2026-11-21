@@ -60,7 +60,7 @@ KHATAWAS uses **two AI models for two different jobs**. Gnani handles the voice;
 | Needs internet | Yes | Yes | No |
 | Input | Push-to-talk audio (16 kHz PCM16), plus customer names as hotwords | The short reply sentence | Only the clause the rules could not parse |
 | Output | Transcript, usually in Hindi script, with English words kept | Streaming audio, played as it arrives | JSON: entry type and customer name |
-| Used on | Every utterance | Every reply | Only some utterances (2 of 64 clean and 5 of 64 noisy test runs) |
+| Used on | Every utterance | Every reply | Only some utterances (2 of 32 clean and 4 of 32 noisy test runs) |
 | Code | `server/gnani.js` | `server/gnani.js` | `src/llm.js` |
 
 **Gnani settings used:** Prisma `model=prisma-v3.0`, `format=codemix`, `language_code=hi-IN`, up to 50 customer names as `keyterms`, 1024-byte PCM frames with a `commit` at the end of speech. Timbre `model=timbre-v3.0`, voice `Shivani`, language `hi-en` (Hinglish), 24 kHz raw PCM.
