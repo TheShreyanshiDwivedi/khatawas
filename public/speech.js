@@ -20,24 +20,28 @@ export async function createListener({ hotwords = [], onPartial = () => {}, useG
   return {
     async start() {
       finalText = '';
-      ws = new WebSocket(wsUrl('/stt'));
-      ws.binaryType = 'arraybuffer';
-      await new Promise((r) => { ws.onopen = r; });
-      ws.send(JSON.stringify({ type: 'start', hotwords: (typeof hotwords === 'function' ? hotwords() : hotwords).slice(0, 50) })); // read fresh each press
-      ws.onmessage = (e) => {
+      const mine = new WebSocket(wsUrl('/stt'));
+      ws = mine;
+      mine.binaryType = 'arraybuffer';
+      await new Promise((r) => { mine.onopen = r; });
+      mine.send(JSON.stringify({ type: 'start', hotwords: (typeof hotwords === 'function' ? hotwords() : hotwords).slice(0, 50) })); // read fresh each press
+      mine.onmessage = (e) => {
+        if (ws !== mine) return; // a late message from an older press must never leak into this one
         const m = JSON.parse(e.data);
         if (m.type === 'partial') onPartial(m.text);
         if (m.type === 'final') { finalText = (finalText + ' ' + m.text).trim(); onPartial(finalText); }
         if (m.type === 'done') resolveFinal?.(finalText);
         if (m.type === 'error') onPartial(m.message);
       };
-      node.port.onmessage = (e) => ws.readyState === 1 && ws.send(e.data);
+      node.port.onmessage = (e) => ws === mine && mine.readyState === 1 && mine.send(e.data);
     },
     stop() {
+      const mine = ws;
       return new Promise((res) => {
-        resolveFinal = res;
-        ws.send(JSON.stringify({ type: 'stop' }));
-        setTimeout(() => res(finalText), 4000); // safety net: never hang the sale
+        const finish = (t) => { res(t); try { mine.close(); } catch { /* already closed */ } }; // one WebSocket per press, closed afterwards
+        resolveFinal = finish;
+        mine.send(JSON.stringify({ type: 'stop' }));
+        setTimeout(() => finish(finalText), 4000); // safety net: never hang the sale
       });
     },
   };

@@ -15,7 +15,7 @@ Real Gnani calls: Timbre v3.0 speaks each test sentence, Prisma v3.0 transcribes
 | Timbre: reply text -> first audio (n = 10) | 430 ms | 939 ms |
 | Qwen2.5-1.5B fallback, when needed | ~260-350 ms | |
 
-Typical end-of-speech -> first spoken reply is therefore roughly 0.7-0.8 s (Prisma + parse + Timbre first audio). This sums medians, excludes the browser <-> our server hop and the Qwen call (when used), and was measured with short sentences.
+Typical end-of-speech -> first spoken reply is therefore roughly 0.8 s: about 0.4 s from release to the reply on screen (measured inside the real app, 8 presses, 0.31-0.79 s) plus about 0.4 s for Timbre's first audio. This sums medians, excludes the browser <-> our server hop and the Qwen call (when used), and was measured with short sentences.
 
 ## Honest caveats
 - **Test audio is synthetic** (Timbre voices, 4 of them), not real shopkeepers, and the noise is synthetic, not recorded in a shop. Treat the noisy numbers as a stress test, not a field result.
