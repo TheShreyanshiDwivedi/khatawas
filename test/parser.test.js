@@ -77,3 +77,12 @@ test('two entries with no comma: "500 udhaar kal 200 diya"', () => {
   const b = parse('Ramesh ka 340 udhaar kal 200 diya', { now: NOW }).actions;
   assert.deepEqual(b.map((x) => [x.kind, x.amount]), [['credit', 340], ['payment', 200]]);
 });
+
+test('number words are never taken as a customer name; honorifics dropped', () => {
+  const a = parse('Ramesh ne aaj subah paanch sau ka saman liya, likh lena', { now: NOW });
+  assert.equal(a.needs_llm, false);
+  assert.deepEqual([a.actions[0].kind, a.actions[0].amount, a.actions[0].customer.name], ['credit', 500, 'ramesh']);
+  const b = parse('Mohan ko teen sau ka maal diya, paise baad me denge', { now: NOW });
+  assert.deepEqual([b.actions[0].kind, b.actions[0].amount, b.actions[0].customer.name], ['credit', 300, 'mohan']);
+  assert.equal(parse('Gupta ji ka hisaab kitna ho gaya', { now: NOW }).actions[0].customer.name, 'gupta');
+});

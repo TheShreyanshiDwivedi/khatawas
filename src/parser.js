@@ -1,7 +1,9 @@
 // Deterministic intent parser: transcript -> list of actions. No network, runs in well under 5 ms.
-import { normalizeDigits, findAmount, canon } from './numbers.js';
+import { normalizeDigits, findAmount, canon, isNumberToken } from './numbers.js';
 
-const CREDIT = ['udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye', 'उधारी', 'बाकी', 'लिखो', 'लिख', 'लिया'];
+const HONOR = new Set(['ji', 'जी', 'bhai', 'bhaiya', 'bhabhi', 'sahab', 'sahib', 'didi', 'uncle', 'aunty', 'madam', 'sir', 'seth', 'bhaisaab']);
+
+const CREDIT = ['maal', 'saman', 'samaan', 'सामान', 'माल', 'udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye', 'उधारी', 'बाकी', 'लिखो', 'लिख', 'लिया'];
 const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid', 'pay', 'payment', 'wapas', 'chukaya', 'chuka', 'mila', 'received', 'gave', 'de gaya', 'de gayi', 'cleared', 'settle', 'दिया', 'दिये', 'दी', 'जमा', 'वापस', 'चुकाया', 'मिला', 'दे दिया'];
 const QUERY = ['kitna', 'kitni', 'kitne', 'total', 'balance', 'how much', 'batao', 'bata', 'kya hai', 'hisab', 'hisaab', 'कितना', 'कितनी', 'कितने', 'टोटल', 'बैलेंस', 'बताओ', 'बताइए', 'हिसाब'];
 const CORRECTION = ['nahi', 'nahin', 'nai', 'no', 'galat', 'sorry', 'matlab', 'actually', 'correction', 'nhi', 'नहीं', 'नही', 'गलत', 'मतलब'];
@@ -37,10 +39,11 @@ export function relativeDate(clause, now = new Date()) {
 
 // Known customers (hotword list) are matched first; otherwise the word before ka/ki/ke/ko.
 export function findCustomer(clause, known = []) {
-  const toks = clause.split(' ');
+  const toks = clause.split(' ').filter((t) => !HONOR.has(t));
+  const isName = (t) => t && /^\p{L}[\p{L}\p{M}]*$/u.test(t) && !STOP.has(t) && !isNumberToken(canon(t));
   // A spoken full name ("ramesh gupta ka") that matches nobody is a NEW customer, not the first-name match.
   for (let i = 2; i < toks.length; i++) {
-    if (POSTPOS.includes(toks[i]) && /^\p{L}+$/u.test(toks[i - 1]) && /^\p{L}+$/u.test(toks[i - 2]) && !STOP.has(toks[i - 1]) && !STOP.has(toks[i - 2])) {
+    if (POSTPOS.includes(toks[i]) && isName(toks[i - 1]) && isName(toks[i - 2])) {
       const full = `${toks[i - 2]} ${toks[i - 1]}`;
       const exact = known.find((k) => k.name.toLowerCase() === full);
       if (exact) return { matches: [exact], name: null };
@@ -57,10 +60,10 @@ export function findCustomer(clause, known = []) {
     return { matches: typed.length ? typed : hits, name: null };
   }
   for (let i = 1; i < toks.length; i++) {
-    if (POSTPOS.includes(toks[i]) && !STOP.has(toks[i - 1]) && !/^\d+$/.test(toks[i - 1])) {
+    if (POSTPOS.includes(toks[i]) && isName(toks[i - 1])) {
       // keep up to two name words: "ramesh kumar ka" -> "ramesh kumar"
       const prev = toks[i - 2];
-      const two = prev && !STOP.has(prev) && /^\p{L}+$/u.test(prev);
+      const two = isName(prev);
       return { matches: [], name: two ? `${prev} ${toks[i - 1]}` : toks[i - 1] };
     }
   }
@@ -151,9 +154,11 @@ export function parse(text, { customers = [], now = new Date() } = {}) {
       actions.push({ kind: direction, amount: amt.value, customer: customerRef, date: date || now.toISOString().slice(0, 10), raw: clause });
       continue;
     }
+    if (actions.length && !isQuery) continue; // trailing filler like "likh lena", "baad me denge"
     unknown = true;
   }
   return { actions, needs_llm: unknown || actions.length === 0 };
 }
 
+export function looksLikeQuery(text) { return hasAny(normalize(text), QUERY); }
 export { titleCase };
