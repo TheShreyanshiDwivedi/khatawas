@@ -4,7 +4,7 @@
 
 **Team:** ANTHROMINDS · **Team ID:** 4FFAF822E514 · **College:** Dayananda Sagar Academy of Technology and Management & Dayananda Sagar College of Engineering
 **Hackathon:** Gnani Voice Hackathon — Voice Khata for Kirana Stores
-**Demo video:** [youtu.be/r4Fw9ceKVoY](https://youtu.be/r4Fw9ceKVoY) (2:21, real app driven with synthetic Gnani Timbre voices) · **Live demo:** link and access code are in the submission form
+**Demo video:** [youtu.be/g-so4KEhQUo](https://youtu.be/g-so4KEhQUo) (2:56, the real live app driven through the real Gnani speech path with synthetic Timbre voices; Hindi, Kannada, Marathi, two Rahuls) · **Live demo:** link and access code are in the submission form
 
 ---
 
@@ -33,7 +33,7 @@ KHATAWAS works in **Hindi/Hinglish, English, Kannada, Marathi, Tamil, Telugu, Gu
 
 ## See it working
 
-These are screenshots of the real app (not mock-ups), taken while driving it with synthetic Gnani Timbre voices through the real Prisma speech path. The caption on the right is added for the demo video; the app itself is the cream-coloured panel. Watch the full run in the [demo video](https://youtu.be/r4Fw9ceKVoY).
+These are screenshots of the real app (not mock-ups), taken while driving it with synthetic Gnani Timbre voices through the real Prisma speech path. The caption on the right is added for the demo video; the app itself is the cream-coloured panel. Watch the full run in the [demo video](https://youtu.be/g-so4KEhQUo).
 
 | | |
 |---|---|
