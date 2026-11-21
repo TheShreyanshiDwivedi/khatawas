@@ -62,7 +62,7 @@ export function bridgeStt(client) {
         let r; try { r = JSON.parse(m.toString()); } catch { return; }
         if (r.type === 'transcript' && r.text) {
           send({ type: 'final', text: r.text, latency: r.latency, lang: r.detected_language_code });
-          if (stopped) scheduleDone(250); // allow a following segment, then finish
+          if (stopped) scheduleDone(800); // wait for any following segment, then finish
         } else if (r.type === 'error') send({ type: 'error', message: r.message });
       });
       stt.ws.on('unexpected-response', (_q, res) => send({ type: 'error', message: `Gnani rejected the connection (HTTP ${res.statusCode}). Check GNANI_API_KEY.` }));

@@ -24,7 +24,7 @@ delete SMALL.no; delete SMALL.saath_; delete SMALL.sattar_; delete SMALL.assi_; 
 delete SMALL.bees_; delete SMALL.tees_; delete SMALL.teen3;
 const MULT = { [canon('सौ')]: 100, [canon('हज़ार')]: 1000, [canon('हजार')]: 1000, [canon('लाख')]: 100000, sau: 100, sao: 100, hundred: 100, hazaar: 1000, hazar: 1000, thousand: 1000, lakh: 100000, lac: 100000 };
 const FRAC = { dedh: 150, dhai: 250, dhaai: 250, [canon('डेढ़')]: 150, [canon('डेढ')]: 150, [canon('ढाई')]: 250 }; // dedh sau = 150, dhai sau = 250
-const SAADE = { saade: 0.5, [canon('साढ़े')]: 0.5, [canon('साढे')]: 0.5 }; // saade teen sau = 350
+const SAADE = { saade: 0.5, [canon('सादे')]: 0.5, [canon('साडे')]: 0.5, [canon('साढ़े')]: 0.5, [canon('साढे')]: 0.5 }; // saade teen sau = 350
 
 const DEV = '०१२३४५६७८९';
 
@@ -56,7 +56,11 @@ export function parseNumberRun(tokens) {
       cur += v; lastSmall = v; continue;
     }
     if (t in SAADE) { saade = true; continue; }
-    if (t in FRAC) { cur = FRAC[t]; sawMult = true; if (tokens[i + 1] === 'sau' || tokens[i + 1] === canon('सौ')) i++; continue; }
+    if (t in FRAC) {
+      const nx = tokens[i + 1];
+      if (nx && nx in MULT && MULT[nx] >= 1000) { total += (FRAC[t] / 100) * MULT[nx]; cur = 0; sawMult = false; i++; continue; } // dedh hazaar = 1500
+      cur = FRAC[t]; sawMult = true; if (nx === 'sau' || nx === canon('सौ')) i++; continue;
+    }
     if (t in MULT) {
       const m = MULT[t];
       if (saade) { cur = (cur + 0.5) * m; saade = false; sawMult = true; continue; }
@@ -78,13 +82,15 @@ export function parseNumberRun(tokens) {
 }
 
 // Find the first number in a token list; returns { value, start, end } or null.
+const DO_VERBS = new Set(['kar', 'karo', 'de', 'dedo', 'chadha', 'chadhao', 'likh', 'likho', 'rakh', 'rakho', 'daal', 'dal', 'lagao', 'lga', 'कर', 'करो', 'दे', 'चढ़ा', 'चढ़ाओ', 'लिख', 'लिखो', 'रख', 'डाल', 'लगा', 'लगाओ'].map(canon));
+const isDo = (t) => t === 'do' || t === canon('दो');
 export function findAmount(tokens) {
   tokens = tokens.map(canon);
+  const num = (i) => isNumberToken(tokens[i]) && !(isDo(tokens[i]) && DO_VERBS.has(tokens[i - 1])); // "kar do" != 2
   for (let i = 0; i < tokens.length; i++) {
-    if (!isNumberToken(tokens[i])) continue;
-    // saade/dedh/dhai may begin a run
+    if (!num(i)) continue;
     let j = i;
-    while (j < tokens.length && isNumberToken(tokens[j])) j++;
+    while (j < tokens.length && num(j)) j++;
     const value = parseNumberRun(tokens.slice(i, j));
     if (value) return { value, start: i, end: j };
     i = j - 1;

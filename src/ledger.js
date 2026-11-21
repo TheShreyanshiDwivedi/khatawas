@@ -1,5 +1,5 @@
 // Ledger logic: applies parsed actions, handles corrections + duplicate-name clarification, answers queries.
-import { titleCase } from './parser.js';
+import { nameKey, displayName } from './translit.js';
 
 export class Ledger {
   constructor() { this.customers = []; this.txns = []; this.nextId = 1; this.pending = null; }
@@ -10,9 +10,10 @@ export class Ledger {
     if (ref.matches?.length === 1) return { customer: this.customers.find((c) => c.id === ref.matches[0].id) };
     if (ref.matches?.length > 1) return { ambiguous: ref.matches };
     if (!ref.name) return { missing: true };
-    let c = this.customers.find((x) => x.name.toLowerCase() === ref.name);
+    const key = nameKey(ref.name);
+    let c = this.customers.find((x) => nameKey(x.name) === key);
     if (!c && !create) return { notFound: true };
-    if (!c) { c = { id: this.customers.length + 1, name: titleCase(ref.name) }; this.customers.push(c); }
+    if (!c) { c = { id: this.customers.length + 1, name: displayName(ref.name) }; this.customers.push(c); }
     return { customer: c };
   }
 
@@ -62,7 +63,8 @@ export class Ledger {
   resolvePending(text) {
     if (!this.pending) return null;
     const w = text.toLowerCase();
-    const pick = this.pending.options.find((o) => w.includes(o.name.toLowerCase().split(' ').pop()) || w.includes(o.name.toLowerCase()));
+    const keys = w.split(/\s+/).map((t) => nameKey(t));
+    const pick = this.pending.options.find((o) => keys.includes(nameKey(o.name.split(' ').pop())) || w.includes(o.name.toLowerCase()));
     if (!pick) return null;
     const a = { ...this.pending.action, customer: { matches: [pick], name: null } };
     this.pending = null;

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server/index.js",
     "live-test": "node scripts/live-test.js",
+    "rescore": "node scripts/rescore.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {

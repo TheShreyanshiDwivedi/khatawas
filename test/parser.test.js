@@ -86,3 +86,21 @@ test('number words are never taken as a customer name; honorifics dropped', () =
   assert.deepEqual([b.actions[0].kind, b.actions[0].amount, b.actions[0].customer.name], ['credit', 300, 'mohan']);
   assert.equal(parse('Gupta ji ka hisaab kitna ho gaya', { now: NOW }).actions[0].customer.name, 'gupta');
 });
+
+test('bug fixes found by the live benchmark', () => {
+  assert.equal(amt('dedh hazaar'), 1500);
+  assert.equal(amt('डेढ़ हज़ार'), 1500);
+  assert.equal(amt('सादे तीन सौ'), 350);
+  const a = parse('मोहन, का सौ रुपये जमा कर दो।', { now: NOW }).actions;
+  assert.equal(a.length, 1); assert.deepEqual([a[0].kind, a[0].amount], ['payment', 100]);
+  assert.equal(parse('Imran ka dhai sau udhaar chadha do', { now: NOW }).actions.length, 1);
+  assert.equal(parse('सुनीता का पाँच सौ उधार कल सौ रुपए दिए।', { now: NOW }).actions[1].kind, 'payment');
+  const c = parse('चार सौ तीस।', { now: NOW }).actions[0];
+  assert.deepEqual([c.kind, c.amount], ['correction', 430]); // "nahi" dropped by STT
+});
+
+test('comma between a name and its "ka" does not create a second entry', () => {
+  const a = parse('मोहन, का सौ रुपए जमा कर दो।', { now: NOW }).actions;
+  assert.equal(a.length, 1);
+  assert.deepEqual([a[0].kind, a[0].amount, a[0].customer.name], ['payment', 100, 'मोहन']);
+});

@@ -1,5 +1,6 @@
 import { findAmount, canon } from './numbers.js';
 import { normalize, looksLikeQuery } from './parser.js';
+import { nameKey } from './translit.js';
 // Offline fallback: Qwen2.5-1.5B (INT4 via Ollama). Only called when the deterministic parser gives up.
 const env = typeof process !== 'undefined' ? process.env : {};
 // In the browser we call our own server (/ollama) so there is no CORS and no direct exposure of Ollama.
@@ -22,7 +23,7 @@ Examples:
 "Gupta ji ka hisaab kitna hai" -> {"actions":[{"kind":"query_customer","customer":"Gupta","date_offset_days":0}]}
 "mausam accha hai" -> {"actions":[]}`;
 
-export async function parseWithQwen(text, { timeoutMs = 4000, fetchImpl = fetch } = {}) {
+export async function parseWithQwen(text, { timeoutMs = 4000, fetchImpl = fetch, fallbackCustomer = null } = {}) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
@@ -42,11 +43,13 @@ export async function parseWithQwen(text, { timeoutMs = 4000, fetchImpl = fetch 
     const out = [];
     for (const a of parsed.actions || []) {
       if (!a || typeof a.kind !== 'string') continue;
-      const name = a.customer && !['null', 'none', 'unknown', ''].includes(String(a.customer).trim().toLowerCase())
-        ? String(a.customer).trim().toLowerCase() : null;
+      const name = (a.customer && !['null', 'none', 'unknown', ''].includes(String(a.customer).trim().toLowerCase())
+        ? String(a.customer).trim().toLowerCase() : null) || (['credit', 'payment'].includes(a.kind) ? fallbackCustomer : null);
       const writes = ['credit', 'payment', 'correction'].includes(a.kind);
       if (writes && !amt) continue;                                   // no amount spoken -> nothing to write
       if ((a.kind === 'credit' || a.kind === 'payment') && !name) continue; // need a customer
+      // The model may not invent people: a customer it names must really be in the sentence (or carried over from the last entry).
+      if (name && name !== fallbackCustomer && !norm.split(' ').some((w) => nameKey(w) && nameKey(w) === nameKey(name.split(' ')[0]))) continue;
       if (a.kind.startsWith('query') && !looksLikeQuery(text)) continue;    // no hallucinated questions
       if (!['credit', 'payment', 'correction', 'query_total', 'query_today', 'query_customer'].includes(a.kind)) continue;
       const d = new Date(); d.setDate(d.getDate() + (Number(a.date_offset_days) || 0));

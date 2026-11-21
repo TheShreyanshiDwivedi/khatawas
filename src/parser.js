@@ -1,10 +1,11 @@
 // Deterministic intent parser: transcript -> list of actions. No network, runs in well under 5 ms.
 import { normalizeDigits, findAmount, canon, isNumberToken } from './numbers.js';
+import { nameKey } from './translit.js';
 
 const HONOR = new Set(['ji', 'जी', 'bhai', 'bhaiya', 'bhabhi', 'sahab', 'sahib', 'didi', 'uncle', 'aunty', 'madam', 'sir', 'seth', 'bhaisaab']);
 
 const CREDIT = ['maal', 'saman', 'samaan', 'सामान', 'माल', 'udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye', 'उधारी', 'बाकी', 'लिखो', 'लिख', 'लिया'];
-const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid', 'pay', 'payment', 'wapas', 'chukaya', 'chuka', 'mila', 'received', 'gave', 'de gaya', 'de gayi', 'cleared', 'settle', 'दिया', 'दिये', 'दी', 'जमा', 'वापस', 'चुकाया', 'मिला', 'दे दिया'];
+const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid', 'pay', 'payment', 'wapas', 'chukaya', 'chuka', 'mila', 'received', 'gave', 'de gaya', 'de gayi', 'cleared', 'settle', 'दिया', 'दिये', 'दिए', 'दी', 'दे दिए', 'दे गया', 'दे गयी', 'दे गई', 'जमा', 'वापस', 'चुकाया', 'मिला', 'दे दिया'];
 const QUERY = ['kitna', 'kitni', 'kitne', 'total', 'balance', 'how much', 'batao', 'bata', 'kya hai', 'hisab', 'hisaab', 'कितना', 'कितनी', 'कितने', 'टोटल', 'बैलेंस', 'बताओ', 'बताइए', 'हिसाब'];
 const CORRECTION = ['nahi', 'nahin', 'nai', 'no', 'galat', 'sorry', 'matlab', 'actually', 'correction', 'nhi', 'नहीं', 'नही', 'गलत', 'मतलब'];
 const POSTPOS = ['ka', 'ki', 'ke', 'ko', 'se', 'ne', 'का', 'की', 'के', 'को', 'से', 'ने'];
@@ -45,7 +46,7 @@ export function findCustomer(clause, known = []) {
   for (let i = 2; i < toks.length; i++) {
     if (POSTPOS.includes(toks[i]) && isName(toks[i - 1]) && isName(toks[i - 2])) {
       const full = `${toks[i - 2]} ${toks[i - 1]}`;
-      const exact = known.find((k) => k.name.toLowerCase() === full);
+      const exact = known.find((k) => nameKey(k.name) === nameKey(full));
       if (exact) return { matches: [exact], name: null };
       return { matches: [], name: full };
     }
@@ -53,7 +54,8 @@ export function findCustomer(clause, known = []) {
   const hits = [];
   for (const k of known) {
     const first = k.name.toLowerCase().split(' ')[0];
-    if (toks.includes(first) || clause.includes(k.name.toLowerCase())) hits.push(k);
+    const fk = nameKey(first);
+    if (toks.some((t) => isName(t) && nameKey(t) === fk) || clause.includes(k.name.toLowerCase())) hits.push(k);
   }
   if (hits.length) {
     const typed = hits.filter((k) => clause.includes(k.name.toLowerCase()));
@@ -67,7 +69,7 @@ export function findCustomer(clause, known = []) {
       return { matches: [], name: two ? `${prev} ${toks[i - 1]}` : toks[i - 1] };
     }
   }
-  const first = toks.find((t) => !STOP.has(t) && !/^\d/.test(t) && /^\p{L}+$/u.test(t));
+  const first = toks.find((t) => isName(t));
   return { matches: [], name: first && toks.indexOf(first) === 0 ? first : null };
 }
 
@@ -77,6 +79,12 @@ function titleCase(s) {
 
 function splitClauses(s) {
   const parts = s.split(/\s*[,;.]\s*|\s+(?:aur|and|phir|then|और|फिर)\s+/u).map((c) => c.trim()).filter(Boolean);
+  // "मोहन, का सौ रुपए ..." : a comma between a name and its postposition does not start a new entry.
+  for (let i = 1; i < parts.length; i++) {
+    if (POSTPOS.includes(parts[i].split(' ')[0]) && parts[i - 1].split(' ').length <= 2) { parts[i] = `${parts[i - 1]} ${parts[i]}`; parts[i - 1] = ''; }
+  }
+  const joined = parts.filter(Boolean);
+  parts.length = 0; parts.push(...joined);
   // A bare correction word ("nahi, 430") belongs to the clause that follows it.
   const out = [];
   for (let i = 0; i < parts.length; i++) {
@@ -120,6 +128,7 @@ export function parse(text, { customers = [], now = new Date() } = {}) {
   const actions = [];
   let lastCustomer = null;
   let unknown = false;
+  const unknownClauses = [];
 
   for (const clause of clauses) {
     const toks = clause.split(' ');
@@ -148,16 +157,21 @@ export function parse(text, { customers = [], now = new Date() } = {}) {
     if (amt) {
       const pay = hasAny(clause, PAYMENT);
       const cred = hasAny(clause, CREDIT);
-      if (!pay && !cred) { unknown = true; continue; }
+      if (!pay && !cred) {
+        // "chaar sau tees" with no verb and no name: Prisma often drops the leading "nahi", so treat it as a correction.
+        if (!(customerRef.matches.length || customerRef.name)) actions.push({ kind: 'correction', amount: amt.value, customer: customerRef });
+        else { unknownClauses.push(clause); unknown = true; }
+        continue;
+      }
       // "diya" with "udhaar" ("udhaar diya") means shopkeeper gave credit -> credit
       const direction = cred && !(pay && !/udhaar diya|udhar diya|credit diya/.test(clause) && /(^|\s)(jama|wapas|chukaya|paid|mila|received)(\s|$)/.test(clause)) ? 'credit' : 'payment';
       actions.push({ kind: direction, amount: amt.value, customer: customerRef, date: date || now.toISOString().slice(0, 10), raw: clause });
       continue;
     }
     if (actions.length && !isQuery) continue; // trailing filler like "likh lena", "baad me denge"
-    unknown = true;
+    unknownClauses.push(clause); unknown = true;
   }
-  return { actions, needs_llm: unknown || actions.length === 0 };
+  return { actions, needs_llm: unknown || actions.length === 0, unknown_clauses: unknownClauses };
 }
 
 export function looksLikeQuery(text) { return hasAny(normalize(text), QUERY); }

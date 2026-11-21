@@ -52,3 +52,20 @@ test('full names create separate customers, then first name asks which', async (
   assert.equal(l.balance(2), 200);
   assert.match((await run(l, 'Ramesh ka 500 udhaar')).replies[0], /Kaun sa/);
 });
+
+test('Devanagari and Latin spellings are the same customer', async () => {
+  const l = new Ledger();
+  await run(l, 'Mohan ka 100 udhaar');
+  await run(l, 'मोहन का दो सौ उधार।');
+  assert.equal(l.customers.length, 1);
+  assert.equal(l.balance(1), 300);
+  await run(l, 'अनिल का पाँच सौ उधार।');
+  assert.equal(l.customers[1].name, 'Anil');
+});
+
+test('phonetic names: फरीदा == Farida', async () => {
+  const l = new Ledger();
+  await run(l, 'Farida ka 100 udhaar');
+  await run(l, 'फरीदा का दो सौ उधार।');
+  assert.equal(l.customers.length, 1);
+});
