@@ -35,7 +35,7 @@ flowchart LR
   P --> S --> T[Transcript]
   T --> R{Rule-based parser<br/>numbers · intent · dates · corrections}
   R -- understood --> L[Ledger logic]
-  R -- not understood --> Q[Qwen2.5-1.5B via Ollama<br/>offline fallback] --> L
+  R -- clause not understood --> Q[Qwen2.5-1.5B via Ollama<br/>type + customer only, amounts from parser] --> L
   L --> E[(Encrypted ledger<br/>AES-256-GCM, IndexedDB)]
   L --> V[Short spoken reply]
   V -->|WebSocket /tts| S2[Gnani Timbre v3.0 TTS] --> O[Audio plays on device]
@@ -49,18 +49,44 @@ flowchart LR
 - **API key never reaches the browser.** The browser talks to our own server (`/stt`, `/tts`), which talks to Gnani.
 - **Spoken answers stream.** Timbre audio chunks are scheduled for playback as they arrive, so the first sound plays before the whole reply is generated.
 
-## Gnani services used
+## Gnani and Qwen: what each one does
 
-| Service | Version | Used for |
-|---|---|---|
-| Prisma | v3.0 | Streaming speech-to-text over WebSocket, with customer-name hotwords |
-| Timbre | v3.0 | Streaming text-to-speech over WebSocket for spoken replies |
+KHATAWAS uses **two AI models for two different jobs**. Gnani handles the voice; Qwen is a small local safety net for sentences the rules cannot understand.
+
+| | **Gnani Prisma v3.0** | **Gnani Timbre v3.0** | **Qwen2.5-1.5B** |
+|---|---|---|---|
+| Job | Speech to text | Text to speech | Reads unclear sentences |
+| Runs where | Gnani cloud (WebSocket) | Gnani cloud (WebSocket) | Locally, on the same machine as our server, via Ollama |
+| Needs internet | Yes | Yes | No |
+| Input | Push-to-talk audio (16 kHz PCM16), plus customer names as hotwords | The short reply sentence | Only the clause the rules could not parse |
+| Output | Transcript, usually in Hindi script, with English words kept | Streaming audio, played as it arrives | JSON: entry type and customer name |
+| Used on | Every utterance | Every reply | Only some utterances (2 of 64 clean and 5 of 64 noisy test runs) |
+| Code | `server/gnani.js` | `server/gnani.js` | `src/llm.js` |
+
+**Gnani settings used:** Prisma `model=prisma-v3.0`, `format=codemix`, `language_code=hi-IN`, up to 50 customer names as `keyterms`, 1024-byte PCM frames with a `commit` at the end of speech. Timbre `model=timbre-v3.0`, voice `Shivani`, language `hi-en` (Hinglish), 24 kHz raw PCM.
+
+**How a sentence flows**
+
+1. The shopkeeper holds the button; Prisma returns the transcript.
+2. The **rule-based parser** reads it first (numbers, credit vs payment, dates, corrections). This takes about 1 ms and is fully predictable.
+3. If, and only if, a clause is not understood, that clause goes to **Qwen**.
+4. The ledger applies the entries and builds a short reply; **Timbre** speaks it.
+
+**Why Qwen is boxed in.** A 1.5B model got 3 of its first 5 test sentences wrong when left unguarded (it read goods-on-credit as a payment, turned 300 into 10, and invented a question from noise). So it is only allowed to choose the *type* of entry and the *customer*. Specifically:
+
+- **Amounts never come from Qwen.** They are read by the deterministic number parser from the same clause.
+- A credit or payment with no spoken amount, or no customer, is rejected.
+- A customer name Qwen returns must actually appear in the clause (it cannot invent people).
+- A question answer is rejected unless the clause contains a question word.
+- If Ollama is down or slow (4 s timeout), Qwen returns nothing and the app asks the shopkeeper to repeat.
+
+**Honest status of Qwen:** tested from the command line and inside the benchmark (`scripts/benchmark.js`), where it recovered a ₹400 credit from "Geeta ke khate me chaar sau ka atta chadha do". It has not yet been exercised through the browser UI, and Ollama must be running on the machine that runs `npm start`. It is a fallback, not the main path.
 
 No telephony, no hosted end-to-end agent platform, no voice cloning. Orchestration is custom (`src/pipeline.js`).
 
 ## Responsible AI
 
-- **Discloses it is an AI:** the header states "Main ek AI hoon · I am an AI assistant" in Hindi and English on first view.
+- **Discloses it is an AI:** the first spoken reply of every session begins "Main ek AI sahayak hoon" (Hindi), and the header also shows "Main ek AI hoon · I am an AI assistant".
 - **Privacy:** the ledger is encrypted at rest with AES-256-GCM (WebCrypto). The key is a non-extractable `CryptoKey` stored in IndexedDB, so page JavaScript cannot read the raw key. Nothing is synced anywhere.
 - **Delete on demand:** the **Delete all data** button wipes both the ciphertext and the key.
 - **What leaves the device:** audio of the push-to-talk utterance goes to Gnani Prisma for transcription, and reply text goes to Gnani Timbre. The ledger itself never leaves the device.
