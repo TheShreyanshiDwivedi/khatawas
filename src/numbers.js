@@ -26,6 +26,8 @@ const MULT = { [canon('सौ')]: 100, [canon('हज़ार')]: 1000, [canon(
 const FRAC = { dedh: 150, dhai: 250, dhaai: 250, [canon('डेढ़')]: 150, [canon('डेढ')]: 150, [canon('ढाई')]: 250 }; // dedh sau = 150, dhai sau = 250
 const SAADE = { saade: 0.5, [canon('सादे')]: 0.5, [canon('साडे')]: 0.5, [canon('साढ़े')]: 0.5, [canon('साढे')]: 0.5 }; // saade teen sau = 350
 
+const ADJ = { sava: 0.25, [canon('सवा')]: 0.25, paune: -0.25, [canon('पौने')]: -0.25, [canon('पौन')]: -0.25 }; // sava sau = 125, paune do sau = 175
+
 const DEV = '०१२३४५६७८९';
 
 // Canonical form for matching Devanagari: NFC, drop nukta, chandrabindu -> anusvara.
@@ -48,13 +50,13 @@ export function normalizeDigits(s) {
 }
 
 export function isNumberToken(t) {
-  return /^\d+$/.test(t) || t in SMALL || t in MULT || t in FRAC || t in SAADE;
+  return /^\d+$/.test(t) || t in SMALL || t in MULT || t in FRAC || t in SAADE || t in ADJ;
 }
 
 // Parse a run of number tokens into a value. Handles "teen sau chaalis", "three forty",
 // "do hazaar paanch sau", "saade teen sau", "dedh sau", "1 lakh".
 export function parseNumberRun(tokens) {
-  let total = 0, cur = 0, sawMult = false, saade = false, lastSmall = null;
+  let total = 0, cur = 0, sawMult = false, saade = false, adj = 0, lastSmall = null;
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
     if (/^\d+$/.test(t)) {
@@ -62,6 +64,7 @@ export function parseNumberRun(tokens) {
       cur += v; lastSmall = v; continue;
     }
     if (t in SAADE) { saade = true; continue; }
+    if (t in ADJ) { adj = ADJ[t]; continue; }
     if (t in FRAC) {
       const nx = tokens[i + 1];
       if (nx && nx in MULT && MULT[nx] >= 1000) { total += (FRAC[t] / 100) * MULT[nx]; cur = 0; sawMult = false; i++; continue; } // dedh hazaar = 1500
@@ -70,6 +73,7 @@ export function parseNumberRun(tokens) {
     if (t in MULT) {
       const m = MULT[t];
       if (saade) { cur = (cur + 0.5) * m; saade = false; sawMult = true; continue; }
+      if (adj) { cur = ((cur || 1) + adj) * m; adj = 0; sawMult = true; continue; }
       if (m === 100) { cur = (cur || 1) * 100; sawMult = true; }
       else { total += (cur || 1) * m; cur = 0; sawMult = false; }
       continue;

@@ -84,7 +84,9 @@ export class Ledger {
     const replies = [];
     if (actions.length) this.pending = null; // a new request replaces any unanswered question
     for (const a of actions) {
-      if (a.kind === 'ask_direction') {
+      if (a.kind === 'skip') {
+        replies.push(t(L, 'skipped')); // "don't add..." / "300 nahi": nothing is written, and we say so
+      } else if (a.kind === 'ask_direction') {
         const nm = a.customer.matches?.length === 1 ? a.customer.matches[0].name : (a.customer.matches?.length > 1 ? firstOf(a.customer.matches[0].name) : displayName(a.customer.name || ''));
         this.pending = { type: 'direction', action: a };
         replies.push(t(L, 'ask_dir', { name: nm, amt: a.amount }));
