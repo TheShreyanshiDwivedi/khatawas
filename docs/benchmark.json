@@ -9,10 +9,10 @@
     },
     "noisy": {
       "sentences": 32,
-      "fullyCorrect": 20,
+      "fullyCorrect": 19,
       "amountExact": 25,
       "amountTotal": 29,
-      "directionRight": 25
+      "directionRight": 24
     },
     "heldOut_clean": {
       "sentences": 8,
@@ -960,12 +960,12 @@
       ],
       "got": [
         {
-          "kind": "credit",
+          "kind": "ask_direction",
           "amount": 250,
           "customer": "imran"
         }
       ],
-      "ok": true,
+      "ok": false,
       "via": "qwen",
       "parseMs": 0.76,
       "qwenMs": 251,
@@ -1587,7 +1587,13 @@
           "customer": "salma"
         }
       ],
-      "got": [],
+      "got": [
+        {
+          "kind": "ask_direction",
+          "amount": 1200,
+          "customer": "ramesh"
+        }
+      ],
       "ok": false,
       "via": "qwen",
       "parseMs": 0.68,

@@ -84,3 +84,21 @@ test('addCustomer registers a zero-balance customer once (any spelling)', () => 
   assert.equal(l.customers.length, 1);
   assert.equal(l.balance(1), 0);
 });
+
+test('garbled tail is joined: "... तीन सौ चालीस। के सुधार।" books a credit, never a payment', async () => {
+  const l = new Ledger(); l.addCustomer('Sunita');
+  const r = await run(l, 'Sunita का तीन सौ चालीस। के सुधार।');
+  assert.equal(l.balance(1), 340);
+  assert.match(r.replies[0], /udhaar/);
+});
+
+test('amount + customer with no direction word asks, and never guesses', async () => {
+  const l = new Ledger(); l.addCustomer('Sunita');
+  const q = await run(l, 'Sunita का तीन सौ चालीस।');
+  assert.match(q.replies[0], /udhaar ya jama/);
+  assert.equal(l.balance(1), 0);
+  await run(l, 'उधार');
+  assert.equal(l.balance(1), 340);
+  const q2 = await run(l, 'Sunita का सौ।'); await run(l, 'jama');
+  assert.equal(l.balance(1), 240);
+});

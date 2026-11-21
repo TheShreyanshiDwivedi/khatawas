@@ -6,3 +6,4 @@ dist
 *.log
 .DS_Store
 docs/qwen-pull.log
+public/_demo/

@@ -4,10 +4,12 @@ import { nameKey } from './translit.js';
 
 const HONOR = new Set(['ji', 'जी', 'bhai', 'bhaiya', 'bhabhi', 'sahab', 'sahib', 'didi', 'uncle', 'aunty', 'madam', 'sir', 'seth', 'bhaisaab']);
 
-const CREDIT = ['maal', 'saman', 'samaan', 'सामान', 'माल', 'udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye', 'उधारी', 'बाकी', 'लिखो', 'लिख', 'लिया'];
+const CREDIT = ['sudhaar', 'सुधार', 'maal', 'saman', 'samaan', 'सामान', 'माल', 'udhaar', 'udhar', 'उधार', 'credit', 'baaki', 'baki', 'likh', 'likhna', 'likho', 'lena', 'liya', 'le gaya', 'le gayi', 'liye', 'उधारी', 'बाकी', 'लिखो', 'लिख', 'लिया'];
 const PAYMENT = ['diya', 'diye', 'de diya', 'de diye', 'dediya', 'jama', 'paid', 'pay', 'payment', 'wapas', 'chukaya', 'chuka', 'mila', 'received', 'gave', 'de gaya', 'de gayi', 'cleared', 'settle', 'दिया', 'दिये', 'दिए', 'दी', 'दे दिए', 'दे गया', 'दे गयी', 'दे गई', 'जमा', 'वापस', 'चुकाया', 'मिला', 'दे दिया'];
 const QUERY = ['kitna', 'kitni', 'kitne', 'total', 'balance', 'how much', 'batao', 'bata', 'kya hai', 'hisab', 'hisaab', 'कितना', 'कितनी', 'कितने', 'टोटल', 'बैलेंस', 'बताओ', 'बताइए', 'हिसाब'];
 const CORRECTION = ['nahi', 'nahin', 'nai', 'no', 'galat', 'sorry', 'matlab', 'actually', 'correction', 'nhi', 'नहीं', 'नही', 'गलत', 'मतलब'];
+// Words that hint at a ledger entry without saying credit/payment outright (e.g. "atta chadha do"): Qwen may read these.
+const WEAK_CUES = ['chadha', 'chadhao', 'chadhana', 'khate', 'khata', 'ration', 'atta', 'doodh', 'चढ़ा', 'चढ़ाओ', 'खाते', 'खाता', 'राशन', 'आटा', 'दूध'];
 const POSTPOS = ['ka', 'ki', 'ke', 'ko', 'se', 'ne', 'का', 'की', 'के', 'को', 'से', 'ने'];
 const STOP = new Set(['कल', 'आज', 'परसों', 'नरसों', 'और', 'है', 'था', 'थी', 'थे', 'रुपये', 'रुपए', 'रूपये', 'टोटल', 'कितना', 'उधार', 'उधारी', 'दिया', 'जमा', 'बाकी', 'नहीं', 'नही', 'गलत', 'मतलब', 'कुल', 'सब', 'सबका', 'kul', 'sab', 'saara', 'sabka', 'aaj', 'kal', 'parso', 'narso', 'ka', 'ki', 'ke', 'ko', 'ne', 'se', 'ek', 'aur', 'and', 'ye', 'woh', 'wo', 'hai', 'tha', 'thi', 'the', 'rupaye', 'rupee', 'rupees', 'rs', 'ruppe', 'total', 'kitna', 'udhaar', 'udhar', 'diya', 'diye', 'jama', 'baaki', 'likh', 'likho', 'nahi', 'nahin', 'no', 'sorry', 'matlab', 'actually', 'galat', 'balance', 'batao', 'bata', 'how', 'much', 'the', 'is', 'of', 'for', 'to'].map(canon));
 
@@ -85,6 +87,14 @@ function splitClauses(s) {
   }
   const joined = parts.filter(Boolean);
   parts.length = 0; parts.push(...joined);
+  // A short garbled tail with a direction cue ("... तीन सौ चालीस। के सुधार।") belongs to the clause before it.
+  for (let i = 1; i < parts.length; i++) {
+    const prev = parts[i - 1];
+    if (prev && parts[i].split(' ').length <= 3 && !findAmount(parts[i].split(' ')) && findAmount(prev.split(' '))
+        && !hasAny(prev, CREDIT.concat(PAYMENT)) && hasAny(parts[i], CREDIT.concat(PAYMENT))) { parts[i] = `${prev} ${parts[i]}`; parts[i - 1] = ''; }
+  }
+  const joined2 = parts.filter(Boolean);
+  parts.length = 0; parts.push(...joined2);
   // A bare correction word ("nahi, 430") belongs to the clause that follows it.
   const out = [];
   for (let i = 0; i < parts.length; i++) {
@@ -160,6 +170,7 @@ export function parse(text, { customers = [], now = new Date() } = {}) {
       if (!pay && !cred) {
         // "chaar sau tees" with no verb and no name: Prisma often drops the leading "nahi", so treat it as a correction.
         if (!(customerRef.matches.length || customerRef.name)) actions.push({ kind: 'correction', amount: amt.value, customer: customerRef });
+        else if (!hasAny(clause, WEAK_CUES)) actions.push({ kind: 'ask_direction', amount: amt.value, customer: customerRef, date: date || now.toISOString().slice(0, 10) });
         else { unknownClauses.push(clause); unknown = true; }
         continue;
       }
@@ -174,5 +185,6 @@ export function parse(text, { customers = [], now = new Date() } = {}) {
   return { actions, needs_llm: unknown || actions.length === 0, unknown_clauses: unknownClauses };
 }
 
+export function hasPaymentCue(text) { return hasAny(normalize(text), PAYMENT); }
 export function looksLikeQuery(text) { return hasAny(normalize(text), QUERY); }
 export { titleCase };

@@ -1,5 +1,5 @@
 import { findAmount, canon } from './numbers.js';
-import { normalize, looksLikeQuery } from './parser.js';
+import { normalize, looksLikeQuery, hasPaymentCue } from './parser.js';
 import { nameKey } from './translit.js';
 // Offline fallback: Qwen2.5-1.5B (INT4 via Ollama). Only called when the deterministic parser gives up.
 const env = typeof process !== 'undefined' ? process.env : {};
@@ -46,6 +46,7 @@ export async function parseWithQwen(text, { timeoutMs = 4000, fetchImpl = fetch,
       const name = (a.customer && !['null', 'none', 'unknown', ''].includes(String(a.customer).trim().toLowerCase())
         ? String(a.customer).trim().toLowerCase() : null) || (['credit', 'payment'].includes(a.kind) ? fallbackCustomer : null);
       const writes = ['credit', 'payment', 'correction'].includes(a.kind);
+      if (a.kind === 'payment' && !hasPaymentCue(text)) continue;        // never guess a payment: money going down needs a payment word
       if (writes && !amt) continue;                                   // no amount spoken -> nothing to write
       if ((a.kind === 'credit' || a.kind === 'payment') && !name) continue; // need a customer
       // The model may not invent people: a customer it names must really be in the sentence (or carried over from the last entry).

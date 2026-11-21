@@ -34,8 +34,13 @@ export class Ledger {
   // Returns { replies: [string], changed: bool }. Replies are short, speakable sentences.
   apply(actions, today = new Date().toISOString().slice(0, 10)) {
     const replies = [];
+    if (actions.length) this.pending = null; // a new request replaces any unanswered question
     for (const a of actions) {
-      if (a.kind === 'credit' || a.kind === 'payment') {
+      if (a.kind === 'ask_direction') {
+        const nm = a.customer.matches?.length === 1 ? a.customer.matches[0].name : (a.customer.matches?.length > 1 ? a.customer.matches[0].name.split(' ')[0] : displayName(a.customer.name || ''));
+        this.pending = { type: 'direction', action: a };
+        replies.push(`${nm} ka ${a.amount} rupaye, udhaar ya jama?`);
+      } else if (a.kind === 'credit' || a.kind === 'payment') {
         const r = this._resolve(a.customer);
         if (r.ambiguous) {
           this.pending = { action: a, options: r.ambiguous };
@@ -71,6 +76,13 @@ export class Ledger {
   // Answer to a "which Ramesh?" question
   resolvePending(text) {
     if (!this.pending) return null;
+    if (this.pending.type === 'direction') {
+      const t = text.toLowerCase().replace(/[.,।!?;:]/g, ' ');
+      const cred = /(udhaar|udhar|उधार|credit|likh|baaki|बाकी|sudhaar|सुधार)/.test(t), pay = /(jama|जमा|diya|दिया|paid|wapas|वापस|payment|chukaya)/.test(t);
+      if (cred === pay) return null; // neither (or both): not an answer
+      const a = { ...this.pending.action, kind: cred ? 'credit' : 'payment' };
+      return this.apply([a]);
+    }
     const w = text.toLowerCase().replace(/[.,।!?;:]/g, ' ').replace(/\s+/g, ' ').trim(); // Prisma adds punctuation ("Gupta.")
     const keys = w.split(/\s+/).map((t) => nameKey(t));
     const pick = this.pending.options.find((o) => keys.includes(nameKey(o.name.split(' ').pop())) || w.includes(o.name.toLowerCase()));
